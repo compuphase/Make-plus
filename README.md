@@ -10,6 +10,7 @@ For example, a simple makefile
 
 project: hello.exe
 
+
 hello.obj : hello.c
 	cc -o=$@ $<
 
@@ -22,3 +23,9 @@ cc -o=./obj/hello.obj hello.c
 link -o=./bin/hello.exe ./obj/hello.obj
 ```
 When we had written "vpath" instead of ".path", there would not have been "./obj" and "./bin" subdirectories on the command lines.
+
+## Other patches
+This version also includes the patches:
+* make-4.2.1-sub_proc.patch (fixes a bug for Microsoft Windows, see https://github.com/mbuilov/gnumake-windows)
+* make-4.2.1-win32-ctrl-c.patch (fix for Ctrl-C support in Microsoft Windows, see https://github.com/mbuilov/gnumake-windows)
+* make-4.2.1-SV49841.patch (fix for function arguments incorrectly shown as defined, see http://savannah.gnu.org/bugs/?49841)
