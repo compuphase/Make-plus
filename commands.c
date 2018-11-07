@@ -64,7 +64,7 @@ void
 set_file_variables (struct file *file)
 {
   struct dep *d;
-  const char *at, *percent, *star, *less;
+  const char *target, *member, *stem, *source;
 
 #ifndef NO_ARCHIVES
   /* If the target is an archive member 'lib(member)',
@@ -80,18 +80,18 @@ set_file_variables (struct file *file)
       p = alloca (cp - file->name + 1);
       memcpy (p, file->name, cp - file->name);
       p[cp - file->name] = '\0';
-      at = p;
+      target = p;
       len = strlen (cp + 1);
       p = alloca (len);
       memcpy (p, cp + 1, len - 1);
       p[len - 1] = '\0';
-      percent = p;
+      member = p;
     }
   else
 #endif  /* NO_ARCHIVES.  */
     {
-      at = file->name;
-      percent = "";
+      target = file->name;
+      member = "";
     }
 
   /* $* is the stem from an implicit or static pattern rule.  */
@@ -128,42 +128,45 @@ set_file_variables (struct file *file)
       if (d == 0)
         file->stem = "";
     }
-  star = file->stem;
+  stem = file->stem;
 
   /* $< is the first not order-only dependency.  */
-  less = "";
+  source = "";
   for (d = file->deps; d != 0; d = d->next)
     if (!d->ignore_mtime)
       {
         if (!d->need_2nd_expansion)
-          less = dep_name (d);
+          source = dep_name (d);
         break;
       }
 
   if (file->cmds == default_file->cmds)
     /* This file got its commands from .DEFAULT.
        In this case $< is the same as $@.  */
-    less = at;
+    source = target;
 
 #define DEFINE_VARIABLE(name, len, value) \
   (void) define_variable_for_file (name,len,value,o_automatic,0,file)
 
   /* Define the variables.  */
 
-  DEFINE_VARIABLE ("<", 1, less);
-  DEFINE_VARIABLE ("*", 1, star);
-  DEFINE_VARIABLE ("@", 1, at);
-  DEFINE_VARIABLE ("%", 1, percent);
+  DEFINE_VARIABLE ("<", 1, source);   /* shorthands */
+  DEFINE_VARIABLE ("*", 1, stem);
+  DEFINE_VARIABLE ("@", 1, target);
+  DEFINE_VARIABLE ("%", 1, member);
+
+  DEFINE_VARIABLE (".SOURCE", 7, source);   /* full names */
+  DEFINE_VARIABLE (".TARGET", 7, target);
 
   /* Compute the values for $^, $+, $?, and $|.  */
 
   {
-    static char *plus_value=0, *bar_value=0, *qmark_value=0;
-    static unsigned int plus_max=0, bar_max=0, qmark_max=0;
+    static char *newsources=0, *sourcesdup=0, *orderonly=0;
+    static unsigned int newsources_max=0, sourcesdup_max=0, orderonly_max=0;
 
-    unsigned int qmark_len, plus_len, bar_len;
+    unsigned int newsources_len, sourcesdup_len, orderonly_len;
     char *cp;
-    char *caret_value;
+    char *sources;
     char *qp;
     char *bp;
     unsigned int len;
@@ -174,31 +177,31 @@ set_file_variables (struct file *file)
     /* Compute first the value for $+, which is supposed to contain
        duplicate dependencies as they were listed in the makefile.  */
 
-    plus_len = 0;
-    bar_len = 0;
+    sourcesdup_len = 0;
+    orderonly_len = 0;
     for (d = file->deps; d != 0; d = d->next)
       {
         if (!d->need_2nd_expansion)
           {
             if (d->ignore_mtime)
-              bar_len += strlen (dep_name (d)) + 1;
+              orderonly_len += strlen (dep_name (d)) + 1;
             else
-              plus_len += strlen (dep_name (d)) + 1;
+              sourcesdup_len += strlen (dep_name (d)) + 1;
           }
       }
 
-    if (bar_len == 0)
-      bar_len++;
+    if (orderonly_len == 0)
+      orderonly_len++;
 
-    if (plus_len == 0)
-      plus_len++;
+    if (sourcesdup_len == 0)
+      sourcesdup_len++;
 
-    if (plus_len > plus_max)
-      plus_value = xrealloc (plus_value, plus_max = plus_len);
+    if (sourcesdup_len > sourcesdup_max)
+      sourcesdup = xrealloc (sourcesdup, sourcesdup_max = sourcesdup_len);
 
-    cp = plus_value;
+    cp = sourcesdup;
 
-    qmark_len = plus_len + 1;   /* Will be this or less.  */
+    newsources_len = sourcesdup_len + 1;   /* Will be this or less.  */
     for (d = file->deps; d != 0; d = d->next)
       if (! d->ignore_mtime && ! d->need_2nd_expansion)
         {
@@ -218,25 +221,26 @@ set_file_variables (struct file *file)
           cp += len;
           *cp++ = FILE_LIST_SEPARATOR;
           if (! (d->changed || always_make_flag))
-            qmark_len -= len + 1;       /* Don't space in $? for this one.  */
+            newsources_len -= len + 1;       /* Don't space in $? for this one.  */
         }
 
     /* Kill the last space and define the variable.  */
 
-    cp[cp > plus_value ? -1 : 0] = '\0';
-    DEFINE_VARIABLE ("+", 1, plus_value);
+    cp[cp > sourcesdup ? -1 : 0] = '\0';
+    DEFINE_VARIABLE ("+", 1, sourcesdup);
+    DEFINE_VARIABLE (".SOURCES+", 9, sourcesdup);
 
     /* Compute the values for $^, $?, and $|.  */
 
-    cp = caret_value = plus_value; /* Reuse the buffer; it's big enough.  */
+    cp = sources = sourcesdup; /* Reuse the buffer; it's big enough.  */
 
-    if (qmark_len > qmark_max)
-      qmark_value = xrealloc (qmark_value, qmark_max = qmark_len);
-    qp = qmark_value;
+    if (newsources_len > newsources_max)
+      newsources = xrealloc (newsources, newsources_max = newsources_len);
+    qp = newsources;
 
-    if (bar_len > bar_max)
-      bar_value = xrealloc (bar_value, bar_max = bar_len);
-    bp = bar_value;
+    if (orderonly_len > orderonly_max)
+      orderonly = xrealloc (orderonly, orderonly_max = orderonly_len);
+    bp = orderonly;
 
     /* Make sure that no dependencies are repeated in $^, $?, and $|.  It
        would be natural to combine the next two loops but we can't do it
@@ -307,14 +311,16 @@ set_file_variables (struct file *file)
 
     /* Kill the last spaces and define the variables.  */
 
-    cp[cp > caret_value ? -1 : 0] = '\0';
-    DEFINE_VARIABLE ("^", 1, caret_value);
+    cp[cp > sources ? -1 : 0] = '\0';
+    DEFINE_VARIABLE ("^", 1, sources);
+    DEFINE_VARIABLE (".SOURCES", 8, sources);
 
-    qp[qp > qmark_value ? -1 : 0] = '\0';
-    DEFINE_VARIABLE ("?", 1, qmark_value);
+    qp[qp > newsources ? -1 : 0] = '\0';
+    DEFINE_VARIABLE ("?", 1, newsources);
+    DEFINE_VARIABLE (".NEWSOURCES", 11, newsources);
 
-    bp[bp > bar_value ? -1 : 0] = '\0';
-    DEFINE_VARIABLE ("|", 1, bar_value);
+    bp[bp > orderonly ? -1 : 0] = '\0';
+    DEFINE_VARIABLE ("|", 1, orderonly);
   }
 
 #undef  DEFINE_VARIABLE

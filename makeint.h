@@ -555,7 +555,7 @@ void install_default_suffix_rules (void);
 void install_default_implicit_rules (void);
 
 void build_vpath_lists (void);
-void construct_vpath_list (char *pattern, char *dirpath, int istarget);
+void construct_vpath_list (char *pattern, char *dirpath, int target_path);
 const char *vpath_search (const char *file, FILE_TIMESTAMP *mtime_ptr, int *target_path,
                           unsigned int* vpath_index, unsigned int* path_index);
 int gpath_search (const char *file, unsigned int len);

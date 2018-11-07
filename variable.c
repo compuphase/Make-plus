@@ -478,6 +478,8 @@ lookup_variable (const char *name, unsigned int length)
 
       v = (struct variable *) hash_find_item ((struct hash_table *) &set->table, &var_key);
       if (v && (!is_parent || !v->private_var))
+        return v->special ? lookup_special_var (v) : v;
+
       /* Variable was not found.  Check if it looks like function call
          argument: $1,$2,$3...  If it is and we are in the context of user
          function call, then we must not take arguments of outer functions.  */

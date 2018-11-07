@@ -150,15 +150,15 @@ build_vpath_lists (void)
    variable.
 
    If DIRPATH is nil, remove all previous listings with the same
-   pattern.  If PATTERN is nil, remove all VPATH listings.  Existing
-   and readable directories that are not "." given in the DIRPATH
-   separated by the path element separator (defined in makeint.h) are
-   loaded into the directory hash table if they are not there already
-   and put in the VPATH searchpath for the given pattern with trailing
-   slashes stripped off if present (and if the directory is not the
-   root, "/").  The length of the longest entry in the list is put in
-   the structure as well.  The new entry will be at the head of the
-   VPATHS chain.  */
+   pattern and the same "target" category.  If PATTERN is nil, remove all
+   VPATH listings (in the same "target" category).  Existing and
+   readable directories that are not "." given in the DIRPATH separated
+   by the path element separator (defined in makeint.h) are loaded into
+   the directory hash table if they are not there already and put in
+   the VPATH searchpath for the given pattern with trailing slashes
+   stripped off if present (and if the directory is not the root, "/").
+   The length of the longest entry in the list is put in the structure
+   as well.  The new entry will be at the head of the VPATHS chain.  */
 
 void
 construct_vpath_list (char *pattern, char *dirpath, int istarget)
@@ -184,10 +184,11 @@ construct_vpath_list (char *pattern, char *dirpath, int istarget)
         {
           struct vpath *next = path->next;
 
-          if (pattern == 0
-              || (((percent == 0 && path->percent == 0)
-                   || (percent - pattern == path->percent - path->pattern))
-                  && streq (pattern, path->pattern)))
+          if ((pattern == 0
+               || (((percent == 0 && path->percent == 0)
+                    || (percent - pattern == path->percent - path->pattern))
+                   && streq (pattern, path->pattern)))
+              && path->target == istarget)
             {
               /* Remove it from the linked list.  */
               if (lastpath == 0)
@@ -546,7 +547,7 @@ selective_vpath_search (struct vpath *path, const char *file,
       else if (istargetpath && !not_target && tgt_name == NULL)
         {
           /* The file does not exist in the directory cache, meaning that
-             it was not mentioned in the makefile. It is a target path, though, 
+             it was not mentioned in the makefile. It is a target path, though,
              so we save the information to the first instance. If no match was
              found at the end of the loop, we use this first path.  */
           assert(i == 0);

@@ -860,7 +860,7 @@ glob (pattern, flags, errfunc, pglob)
 	 have to glob for the directory, and then glob for
 	 the pattern in each directory found.  */
       glob_t dirs;
-      register unsigned i;
+      register size_t i;
 
       status = glob (dirname,
 		     ((flags & (GLOB_ERR | GLOB_NOCHECK | GLOB_NOESCAPE))
@@ -1072,7 +1072,7 @@ globfree (pglob)
 {
   if (pglob->gl_pathv != NULL)
     {
-      register unsigned i;
+      register size_t i;
       for (i = 0; i < pglob->gl_pathc; ++i)
 	if (pglob->gl_pathv[i] != NULL)
 	  free ((__ptr_t) pglob->gl_pathv[i]);

@@ -662,8 +662,10 @@ static const char *default_variables[] =
 #endif
 
 #endif /* !VMS */
-    /* Make this assignment to avoid undefined variable warnings.  */
-    "GNUMAKEFLAGS", "",
+
+    "GNUMAKEFLAGS", "", /* Make this assignment to avoid undefined variable warnings.  */
+    ".SPACE", " ",      /* For use in macros where you need to match on a space.  */
+
     0, 0
   };
 
