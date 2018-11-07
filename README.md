@@ -1,7 +1,7 @@
 # GNU Make - patched
 This is a version of GNU make with a few additions that are mostly inspired by Opus Make.
 
-## VPATH for targets
+## .path - VPATH for targets
 There is a feature in Opus Make that we use all the time for Windows development: the "`.path`" command, which is essentially a VPATH for targets. For simple projects, the use of "target VPATHs" removes that you need to resort to recursive make. It allows you to easily separate intermediate files from source files.
 
 The `.path` command essentially the same as `vpath`, it also uses the same syntax. The difference is that when a prerequisite is not found (in any of the paths), where it will be located:
@@ -30,6 +30,32 @@ link -o=./bin/hello.exe ./obj/hello.obj
 When we had written "vpath" instead of ".path", there would not have been "./obj" and "./bin" subdirectories on the command lines.
 
 You can clear the VPATH list by putting no path name on the `vpath` command. For the target-path list, you use the same syntax on the `.path` command. You could set a global `.path` by omitting the pattern (but I do not see the point). You may mix `vpath` and `.path`, but there is probably little use in that.
+
+## Descriptive aliases for automatic variables
+The predefined variables for targets and prerequisites are cryptic and difficult to remember. This version adds variables with longer (descriptive) names, as an alias for these automatic variables.
+
+| variable | alias        | Brief description |
+| -------- | ------------ | ----------------- |
+| $@       | $(.TARGET)	  | The path to the target of a rule. |
+| $<       | $(.SOURCE)	  | The path name of the inferred source, or the path of the first explicit source. |
+| $?       | $(.NEWSOURCES) |A space-separated list of all prerequisites that are newer than the target. |
+| $^       | $(.SOURCES)  | A space-separated list of all prerequisites, where duplicate names have been removed. |
+| $+       | $(.SOURCES+) | A space-separated list of all prerequisites, without removing duplicate names. |
+| $*       |              | The stem with which an implicit rule matches (or in an explicit rule, $@ without its suffix). |
+| $%       |              | The name of the member in the target, in the case that the target is a library. |
+| $&vert;  |              | A space-separated list of order-only prerequisites. |
+
+Note: the descriptions of these macros is terse and incomplete. Look up the full function of these macros in the GNU manual.
+
+## A predefined variable for the space character
+We use some tools that require a list of files separated with commas on the input line. GNU make separates the prerequisites by space characters. This can be converted with the `$(subst ...)` function, like in:
+```
+comma = ,
+
+all:
+	process output.db $(subst $(.SPACE),$(comma),$(.SOURCES))
+```
+Although you can create a definition for `$(.SPACE)` in a makefile, it is a bit of a kludge. Therefore, a macro for a space character is now predefined.
 
 ## Other patches
 This version also includes the patches:
