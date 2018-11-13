@@ -57,6 +57,12 @@ all:
 ```
 Although you can create a definition for `$(.SPACE)` in a makefile, it is a bit of a kludge. Therefore, a macro for a space character is now predefined.
 
+The .SPACE predefined variable is also useful when you want to indent recipes in the makefile with spaces rather than a tab. In order to do this, you need to set the predefined variable .RECIPEPREFIX to a space, and a convenient way to do so is by setting it to $(.SPACE). For example:
+```
+.RECIPEPREFIX := $(.SPACE)
+```
+Note that the .SPACE variable must be expanded immediately in this case; use `:=` rather than `=`.
+
 ## Other patches
 This version also includes the patches:
 * make-4.2.1-sub_proc.patch (fixes a bug for Microsoft Windows, see https://github.com/mbuilov/gnumake-windows)
