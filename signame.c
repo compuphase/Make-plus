@@ -240,7 +240,7 @@ strsignal (int sig)
   static char sig_initted = 0;
 
   if (!sig_initted)
-    sig_initted = signame_init ();
+    sig_initted = (char) signame_init ();
 # endif
 #endif
 

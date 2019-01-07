@@ -37,7 +37,7 @@ struct vpath
     unsigned int patlen;/* Length of the pattern.  */
     const char **searchpath; /* Null-terminated list of directories.  */
     unsigned int maxlen;/* Maximum length of any entry in the list.  */
-    int target;         /* If non-zero, targets are located ONLY in the vpath. */
+    int exclusive;      /* If non-zero, targets are located ONLY in the vpath. */
   };
 
 /* Linked-list of all selective VPATHs.  */
@@ -161,7 +161,7 @@ build_vpath_lists (void)
    as well.  The new entry will be at the head of the VPATHS chain.  */
 
 void
-construct_vpath_list (char *pattern, char *dirpath, int istarget)
+construct_vpath_list (char *pattern, char *dirpath, int exclusive)
 {
   unsigned int elem;
   char *p;
@@ -188,7 +188,7 @@ construct_vpath_list (char *pattern, char *dirpath, int istarget)
                || (((percent == 0 && path->percent == 0)
                     || (percent - pattern == path->percent - path->pattern))
                    && streq (pattern, path->pattern)))
-              && path->target == istarget)
+              && path->exclusive == exclusive)
             {
               /* Remove it from the linked list.  */
               if (lastpath == 0)
@@ -293,7 +293,7 @@ construct_vpath_list (char *pattern, char *dirpath, int istarget)
       path = xmalloc (sizeof (struct vpath));
       path->searchpath = vpath;
       path->maxlen = maxvpath;
-      path->target = istarget;
+      path->exclusive = exclusive;
       path->next = vpaths;
       vpaths = path;
 
@@ -342,7 +342,7 @@ selective_vpath_search (struct vpath *path, const char *file,
   const char *filename;
   const char **vpath = path->searchpath;
   unsigned int maxvpath = path->maxlen;
-  int istargetpath = path->target;
+  int isexclusive = path->exclusive;
   unsigned int i;
   unsigned int flen, name_dplen;
   int exists = 0;
@@ -519,7 +519,7 @@ selective_vpath_search (struct vpath *path, const char *file,
               if (e != 0)
                 {
                   exists = 0;
-                  if (!istargetpath && not_target)
+                  if (!isexclusive && not_target)
                     continue;
                 }
 
@@ -544,7 +544,7 @@ selective_vpath_search (struct vpath *path, const char *file,
 
           return strcache_add_len (name, (p + 1 - name) + flen);
         }
-      else if (istargetpath && !not_target && tgt_name == NULL)
+      else if (isexclusive && !not_target && tgt_name == NULL)
         {
           /* The file does not exist in the directory cache, meaning that
              it was not mentioned in the makefile. It is a target path, though,
@@ -561,7 +561,7 @@ selective_vpath_search (struct vpath *path, const char *file,
   if (tgt_name != NULL)
     {
       assert(tgt_len > 0);  /* the path must be non-empty */
-      assert(istargetpath); /* the vpath is for targets */
+      assert(isexclusive); /* the vpath is for targets */
       assert(!not_target);  /* this must not be a target */
 
       if (mtime_ptr != NULL)
@@ -615,7 +615,7 @@ vpath_search (const char *file, FILE_TIMESTAMP *mtime_ptr, int *target_path,
           if (p)
             {
               if (target_path)
-                *target_path = v->target;
+                *target_path = v->exclusive;
               return p;
             }
         }
@@ -654,7 +654,7 @@ print_vpath_data_base (void)
 
       ++nvpaths;
 
-      if (v->target)
+      if (v->exclusive)
         printf (".path %s ", v->pattern);
       else
         printf ("vpath %s ", v->pattern);

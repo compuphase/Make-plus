@@ -202,7 +202,7 @@ pattern_search (struct file *file, int archive,
                 unsigned int depth, unsigned int recursions)
 {
   /* Filename we are searching for a rule for.  */
-  const char *filename = archive ? strchr (file->name, '(') : file->name;
+  const char *filename = archive ? strchr (file->name, '(') : (file->is_renamed ? file->vpath : file->name);
 
   /* Length of FILENAME.  */
   unsigned int namelen = strlen (filename);

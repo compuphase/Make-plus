@@ -22,7 +22,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #define RTLD_GLOBAL 4
 
 extern void *dlopen (const char *, int);
-extern void *dlsym (void *, const char *);
+extern load_func_t dlsym (void *, const char *);
 extern char *dlerror (void);
 extern int   dlclose (void *);
 

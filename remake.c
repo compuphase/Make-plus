@@ -1368,6 +1368,12 @@ f_mtime (struct file *file, int search)
               if (name[name_len - 1] == '/')
                   name_len--;
 #endif
+              if (target_path) {
+                  assert(file->vpath == NULL && file->name != NULL);
+                  file->vpath = xstrdup(file->name);    /* save the original name */
+                  assert(file->is_renamed == 0);
+                  file->is_renamed = 1;
+              }
               if (target_path || gpath_search (name, name_len))
                 {
                   rename_file (file, name);

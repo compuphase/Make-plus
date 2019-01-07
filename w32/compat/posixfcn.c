@@ -25,9 +25,8 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include <errno.h>
 #include <windows.h>
 
-#include "dlfcn.h"
-
 #include "makeint.h"
+#include "dlfcn.h"
 #include "job.h"
 
 #ifndef NO_OUTPUT_SYNC
@@ -426,7 +425,7 @@ dlerror (void)
   return errbuf;
 }
 
-void *
+load_func_t
 dlsym (void *handle, const char *name)
 {
   FARPROC addr = NULL;
@@ -441,7 +440,7 @@ dlsym (void *handle, const char *name)
   if (!addr)
     last_err = GetLastError ();
 
-  return (void *)addr;
+  return (load_func_t)addr;
 }
 
 int

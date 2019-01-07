@@ -2625,7 +2625,7 @@ init_switches (void)
       long_options[i].flag = 0;
       long_options[i].val = switches[i].c;
       if (short_option (switches[i].c))
-        *p++ = switches[i].c;
+        *p++ = (char) switches[i].c;
       switch (switches[i].type)
         {
         case flag:
@@ -2869,7 +2869,7 @@ decode_switches (int argc, const char **argv, int env)
                       const char *op = opt;
 
                       if (short_option (cs->c))
-                        opt[0] = cs->c;
+                        opt[0] = (char) cs->c;
                       else
                         op = cs->long_name;
 
@@ -3230,7 +3230,7 @@ define_makeflags (int all, int makefile)
   /* Add simple options as a group.  */
   while (flags != 0 && !flags->arg && short_option (flags->cs->c))
     {
-      *p++ = flags->cs->c;
+      *p++ = (char) flags->cs->c;
       flags = flags->next;
     }
 

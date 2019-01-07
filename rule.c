@@ -376,7 +376,7 @@ install_pattern_rule (struct pspec *p, int terminal)
 
   if (new_pattern_rule (r, 0))
     {
-      r->terminal = terminal;
+      r->terminal = (char) terminal;
       r->cmds = xmalloc (sizeof (struct commands));
       r->cmds->fileinfo.filenm = 0;
       r->cmds->fileinfo.lineno = 0;
@@ -463,7 +463,7 @@ create_pattern_rule (const char **targets, const char **target_percents,
     }
 
   if (new_pattern_rule (r, override))
-    r->terminal = terminal;
+    r->terminal = (char) terminal;
 }
 
 /* Print the data base of rules.  */

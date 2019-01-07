@@ -79,8 +79,8 @@ copy_string (struct strcache *sp, const char *str, unsigned int len)
 
   memmove (res, str, len);
   res[len++] = '\0';
-  sp->end += len;
-  sp->bytesfree -= len;
+  sp->end += (sc_buflen_t) len;
+  sp->bytesfree -= (sc_buflen_t) len;
   ++sp->count;
 
   return res;

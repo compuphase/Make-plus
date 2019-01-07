@@ -80,26 +80,28 @@ struct file
     unsigned int precious:1;    /* Non-0 means don't delete file on quit */
     unsigned int loaded:1;      /* True if the file is a loaded object. */
     unsigned int low_resolution_time:1; /* Nonzero if this file's time stamp
-                                           has only one-second resolution.  */
-    unsigned int tried_implicit:1; /* Nonzero if have searched
-                                      for implicit rule for making
-                                      this file; don't search again.  */
-    unsigned int updating:1;    /* Nonzero while updating deps of this file */
+                                           has only one-second resolution. */
+    unsigned int tried_implicit:1; /* Nonzero if have searched for implicit
+                                      rule for making this file; don't search
+									  again.  */
+    unsigned int updating:1;    /* Nonzero while updating deps of this file. */
     unsigned int updated:1;     /* Nonzero if this file has been remade.  */
-    unsigned int is_target:1;   /* Nonzero if file is described as target.  */
-    unsigned int cmd_target:1;  /* Nonzero if file was given on cmd line.  */
+    unsigned int is_target:1;   /* Nonzero if file is described as target. */
+    unsigned int cmd_target:1;  /* Nonzero if file was given on cmd line. */
     unsigned int phony:1;       /* Nonzero if this is a phony file
-                                   i.e., a prerequisite of .PHONY.  */
-    unsigned int intermediate:1;/* Nonzero if this is an intermediate file.  */
+                                   i.e., a prerequisite of .PHONY. */
+    unsigned int intermediate:1;/* Nonzero if this is an intermediate file. */
     unsigned int secondary:1;   /* Nonzero means remove_intermediates should
-                                   not delete it.  */
+                                   not delete it. */
     unsigned int dontcare:1;    /* Nonzero if no complaint is to be made if
-                                   this target cannot be remade.  */
-    unsigned int ignore_vpath:1;/* Nonzero if we threw out VPATH name.  */
+                                   this target cannot be remade. */
+    unsigned int ignore_vpath:1;/* Nonzero if we threw out VPATH name. */
     unsigned int pat_searched:1;/* Nonzero if we already searched for
-                                   pattern-specific variables.  */
+                                   pattern-specific variables. */
     unsigned int no_diag:1;     /* True if the file failed to update and no
                                    diagnostics has been issued (dontcare). */
+    unsigned int is_renamed:1;  /* Nonzero if the name was changed, e.g. because
+                                   of a target vpath. */
   };
 
 
