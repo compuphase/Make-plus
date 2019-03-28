@@ -2553,7 +2553,7 @@ func_call (char *o, char **argv, const char *funcname UNUSED)
   const struct function_table_entry *entry_p;
   struct variable *v;
   struct variable_set_list *setlist;
-  
+
   /* Clean up the name of the variable to be invoked.  */
   fname = next_token (argv[0]);
   end_of_token (fname)[0] = '\0';
@@ -2659,9 +2659,9 @@ define_new_function (const floc *flocp, const char *name,
 
   ent = xmalloc (sizeof (struct function_table_entry));
   ent->name = name;
-  ent->len = len;
-  ent->minimum_args = min;
-  ent->maximum_args = max;
+  ent->len = (unsigned char)len;
+  ent->minimum_args = (unsigned char)min;
+  ent->maximum_args = (unsigned char)max;
   ent->expand_args = ANY_SET(flags, GMK_FUNC_NOEXPAND) ? 0 : 1;
   ent->alloc_fn = 1;
   ent->fptr.alloc_func_ptr = func;

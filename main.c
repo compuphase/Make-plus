@@ -309,6 +309,7 @@ static int print_usage_flag = 0;
    for each reference to an undefined variable.  */
 
 int warn_undefined_variables_flag;
+static int default_warn_undef_vars = 1;
 
 /* If nonzero, always build all targets, regardless of whether
    they appear out of date or not.  */
@@ -467,10 +468,12 @@ static const struct command_switch switches[] =
     { CHAR_MAX+3, flag, &trace_flag, 1, 1, 0, 0, 0, "trace" },
     { CHAR_MAX+4, flag, &inhibit_print_directory_flag, 1, 1, 0, 0, 0,
       "no-print-directory" },
-    { CHAR_MAX+5, flag, &warn_undefined_variables_flag, 1, 1, 0, 0, 0,
+    { CHAR_MAX+5, flag, &warn_undefined_variables_flag, 1, 1, 0, 0, &default_warn_undef_vars,
       "warn-undefined-variables" },
-    { CHAR_MAX+6, strlist, &eval_strings, 1, 0, 0, 0, 0, "eval" },
-    { CHAR_MAX+7, string, &sync_mutex, 1, 1, 0, 0, 0, "sync-mutex" },
+    { CHAR_MAX+6, flag_off, &warn_undefined_variables_flag, 1, 1, 0, 0, &default_warn_undef_vars,
+      "no-warn-undefined-variables" },
+    { CHAR_MAX+7, strlist, &eval_strings, 1, 0, 0, 0, 0, "eval" },
+    { CHAR_MAX+8, string, &sync_mutex, 1, 1, 0, 0, 0, "sync-mutex" },
     { 0, 0, 0, 0, 0, 0, 0, 0, 0 }
   };
 
@@ -1916,6 +1919,9 @@ main (int argc, char **argv, char **envp)
 #ifdef SIGUSR1
   bsd_signal (SIGUSR1, debug_signal_handler);
 #endif
+
+  /* read configuration file (argv[0] is only used in DOS compile). */
+  read_config (argv[0]);
 
   /* Define the initial list of suffixes for old-style rules.  */
   set_default_suffixes ();

@@ -280,6 +280,7 @@ define_variable_in_set (const char *name, unsigned int length,
   else
     v->fileinfo.filenm = 0;
   v->origin = origin;
+  v->flavor = 0;
   v->recursive = recursive;
   v->special = 0;
   v->expanding = 0;

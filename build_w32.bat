@@ -15,6 +15,9 @@ rem
 rem You should have received a copy of the GNU General Public License along
 rem with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+echo "Note: Microsoft C/C++ environment needs to be set (vcvarsall.bat)"
+pause
+
 call :Reset
 
 if "%1" == "-h" goto Usage

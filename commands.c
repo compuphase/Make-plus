@@ -366,7 +366,7 @@ chop_commands (struct commands *cmds)
       while (*p != '\0')
         {
           const char *end = p;
-        find_end:;
+        find_end:
           end = strchr (end, '\n');
           if (end == 0)
             end = p + strlen (p);
