@@ -1,8 +1,8 @@
 # GNU Make - patched
-This is a version of GNU make with a few additions that are mostly inspired by Opus Make.
+This is a version of GNU make with a few additions, many of which are inspired by Opus Make.
 
 ## .path - VPATH for targets
-There is a feature in Opus Make that we use all the time for Windows development: the "`.path`" command, which is essentially a VPATH for targets. For simple projects, the use of "target VPATHs" removes that you need to resort to recursive make. It allows you to easily separate intermediate files from source files.
+The new `.path` command is essentially a `VPATH` for targets. It allows you to easily separate intermediate files and output files from source files, while keeping the makefile clean and simple.
 
 The `.path` command essentially the same as `vpath`, it also uses the same syntax. The difference is that when a prerequisite is not found (in any of the paths), where it will be located:
 * If you use one or more `.path` commands, it is located in the first path listed (on the first `.path` command).
@@ -68,3 +68,4 @@ This version also includes the patches:
 * make-4.2.1-sub_proc.patch (fixes a bug for Microsoft Windows, see https://github.com/mbuilov/gnumake-windows)
 * make-4.2.1-win32-ctrl-c.patch (fix for Ctrl-C support in Microsoft Windows, see https://github.com/mbuilov/gnumake-windows)
 * make-4.2.1-SV49841.patch (fix for function arguments incorrectly shown as defined, see http://savannah.gnu.org/bugs/?49841)
+* `--warn-undefined-variables` is now the default, use `--no-warn-undefined-variables` to turn it off.
