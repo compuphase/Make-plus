@@ -2,7 +2,7 @@
 This is a version of GNU make with a few additions, many of which are inspired by Opus Make.
 
 ## .path - VPATH for targets
-The new `.path` command is essentially a `VPATH` for targets. It allows you to easily separate intermediate files and output files from source files, while keeping the makefile clean and simple.
+The new `.path` command is essentially a `VPATH` for targets. It allows you to easily separate intermediate files and output files from source files, while keeping the makefile clean and simple. For a motivation for adding `.path` see the [Wiki](./wiki/Rationale-for-the-.path-directive)
 
 The `.path` command essentially the same as `vpath`, it also uses the same syntax. The difference is that when a prerequisite is not found (in any of the paths), where it will be located:
 * If you use one or more `.path` commands, it is located in the first path listed (on the first `.path` command).
