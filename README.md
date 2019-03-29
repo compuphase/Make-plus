@@ -68,7 +68,9 @@ The built-in implicit rules, suffix rules and variable/macro definition are stor
 
 The configuration file uses a subset of the syntax for makefiles. Essentially, it supports defintions of implicit rules, suffix rules and variables that are set with the `=` or `:=` operator.
 
-A few examples are provided in the `configfiles` directory of this repository. These configurations were extracted from the GNU Make source code.
+A few standard configurations are provided in the `configfiles` directory of this repository. These configurations were extracted from the GNU Make source code. To use one of these configurations, rename the respective file to `make.conf` and place it in the appropriate location.
+
+Without a `make.conf` file, `make` still runs fine. You will have no built-in rules or macros, though. (You may actually prefer to use only explicit rules and macros in your makefile).
 
 For a motivation for moving the built-in configuration out of the executable and into an editable text file, see the [Wiki](../../wiki/Rationale-for-a-configuration-file).
 
