@@ -53,7 +53,7 @@ We use some tools that require a list of files separated with commas on the inpu
 comma = ,
 
 all:
-	process output.db $(subst $(.SPACE),$(comma),$(.SOURCES))
+	process output.db $(subst $(.space),$(comma),$(.SOURCES))
 ```
 Although you can create a definition for `$(.space)` in a makefile, it is a bit of a kludge. Therefore, a macro for a space character is now predefined.
 
