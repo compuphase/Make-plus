@@ -64,9 +64,9 @@ The .space predefined variable is also useful when you want to indent recipes in
 Note that the `.space` variable must be expanded immediately in this case; use `:=` rather than `=`.
 
 ## "Built-in" rules and macros have moved to a configuration file
-The built-in implicit rules, suffix rules and variable/macro definition are stored in a configuration file. The file is called `make.conf` (or `make.cfg` in DOS). It is located in the `/etc` directory for Unix-like operating systems, and in the same directory that the `make` executbale is in under Microsoft Windows and DOS.
+The built-in pattern rules, suffix rules and variable/macro definition are stored in a configuration file. The file is called `make.conf` (or `make.cfg` in DOS). It is located in the `/etc` directory for Unix-like operating systems, and in the same directory that the `make` executbale is in under Microsoft Windows and DOS.
 
-The configuration file uses a subset of the syntax for makefiles. Essentially, it supports defintions of implicit rules, suffix rules and variables that are set with the `=` or `:=` operator.
+The configuration file uses a subset of the syntax for makefiles. Essentially, it supports defintions of pattern rules, suffix rules and macros that are set with the `=` or `:=` operator.
 
 A few standard configurations are provided in the `configfiles` directory of this repository. These configurations were extracted from the GNU Make source code. To use one of these configurations, rename the respective file to `make.conf` and place it in the appropriate location.
 
