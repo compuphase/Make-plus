@@ -69,7 +69,7 @@ Without a `make.conf` file, `make` still runs fine. You will have no built-in ru
 For a motivation for moving the built-in configuration out of the executable and into an editable text file, see the [Wiki](../../wiki/Rationale-for-a-configuration-file).
 
 ## "ifdef" tests for "if defined"
-The semantics of `ifdef` have changed to test for whether a macro is defined. The semantics of the official GNU Make tests whether the macro is non-empty.
+The semantics of `ifdef` have changed to test for whether a macro is defined. The semantics of the official GNU Make tests whether the macro is non-empty. See the [Wiki](../../wiki/Rationale-for-fixing-ifdef) for the motivation for this change.
 
 To test whether a macro is non-empty, you must now use:
 ```
