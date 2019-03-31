@@ -1,5 +1,5 @@
 # GNU Make - patched
-This is a version of GNU make with a few additions, many of which are inspired by Opus Make.
+This is a forked version of GNU make with a few additions and changes to enhance its ease of use. Several of these changes are inspired by Opus Make version 6.1 from 1998. In adding these features to GNU Make, I have come to appreciate how advanced Opus Make was 20 years ago.
 
 ## .path - VPATH for targets
 The new `.path` command is essentially a `VPATH` for targets. It allows you to easily separate intermediate files and output files from source files, while keeping the makefile clean and simple. For a motivation for adding `.path` see the [Wiki](../../wiki/Rationale-for-the-.path-directive)
@@ -57,12 +57,6 @@ all:
 ```
 Although you can create a definition for `$(.space)` in a makefile, it is a bit of a kludge. Therefore, a macro for a space character is now predefined.
 
-The .space predefined variable is also useful when you want to indent recipes in the makefile with spaces rather than a tab. In order to do this, you need to set the predefined variable .RECIPEPREFIX to a space, and a convenient way to do so is by setting it to $(.space). For example:
-```
-.RECIPEPREFIX := $(.space)
-```
-Note that the `.space` variable must be expanded immediately in this case; use `:=` rather than `=`.
-
 ## "Built-in" rules and macros have moved to a configuration file
 The built-in pattern rules, suffix rules and variable/macro definition are stored in a configuration file. The file is called `make.conf` (or `make.cfg` in DOS). It is located in the `/etc` directory for Unix-like operating systems, and in the same directory that the `make` executbale is in under Microsoft Windows and DOS.
 
@@ -73,6 +67,23 @@ A few standard configurations are provided in the `configfiles` directory of thi
 Without a `make.conf` file, `make` still runs fine. You will have no built-in rules or macros, though. (You may actually prefer to use only explicit rules and macros in your makefile).
 
 For a motivation for moving the built-in configuration out of the executable and into an editable text file, see the [Wiki](../../wiki/Rationale-for-a-configuration-file).
+
+## "ifdef" tests for "if defined"
+The semantics of `ifdef` have changed to test for whether a macro is defined. The semantics of the official GNU Make tests whether the macro is non-empty.
+
+To test whether a macro is non-empty, you must now use:
+```
+ifneq($(var),)
+...
+endif
+```
+
+Note that if a macro only contains white-space, it is also considered non-empty. To ignore white-space in the test for emptiness, you can use the `strip` function:
+```
+ifneq($(strip $(var)),)
+...
+endif
+```
 
 ## Other patches
 This version also includes the patches:
