@@ -1240,10 +1240,11 @@ do_variable_definition (const floc *flocp, const char *varname,
       v = lookup_variable (varname, strlen (varname));
       if (v)
         return v->special ? set_special_var (v) : v;
-
+      /* if arrived here, the variable does not yet exist */
       conditional = 1;
+      p = value;
       flavor = f_recursive;
-      /* FALLTHROUGH */
+      break;
     case f_recursive:
       /* A recursive variable definition "var = value".
          The value is used verbatim.  */

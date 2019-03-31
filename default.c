@@ -124,15 +124,24 @@ void read_config (char *argv0)
       concat = 0;
       striptrailing(line);
       ptr = strchr(line, '\0');
-      if (*(ptr - 1)== '\\')
+      if (ptr > line && *(ptr - 1) != '\\')
         {
-          concat = 1;       /* next line must be concatenated */
-          *(ptr-1) = '\0';  /* erase \ */
-          striptrailing(line);   /* strip trailing whitespace before \ */
+          *--ptr = '\0';            /* erase \ */
+          /* check for double \\ at the end of line */
+          if (ptr == line || *(ptr - 1) != '\\')
+            {
+              concat = 1;           /* next line must be concatenated */
+              striptrailing(line);  /* strip trailing whitespace before \ */
+            }
         }
       ptr = strchr(line, '#');
       if (ptr)
-        *ptr = '\0';  /* terminate the string at the # */
+        {
+        if (ptr == line || *(ptr-1) != '\\')
+          *ptr = '\0';              /* a comment, terminate the string at the # */
+        else
+          memmove(ptr - 1, ptr, strlen(ptr) + 1); /* \# appears, delete the \ (and keep the #) */
+        }
       if (concat)
         {
           int length = strlen(line);
@@ -303,6 +312,11 @@ define_default_variables (void)
   struct stringlist *item;
   const char **s;
 
+  /* A few variables are hard-coded (although they can be overriden by the
+     configuration file). */
+  for (s = default_variables; *s != 0; s += 2)
+    define_variable (s[0], strlen (s[0]), s[1], o_default, 1);
+
   if (no_builtin_variables_flag)
     return;
 
@@ -323,10 +337,6 @@ define_default_variables (void)
           define_variable (name, strlen (name), ptr, o_default, 1);
         }
     }
-
-  /* A few variables are hard-coded. */
-  for (s = default_variables; *s != 0; s += 2)
-    define_variable (s[0], strlen (s[0]), s[1], o_default, 1);
 }
 
 void

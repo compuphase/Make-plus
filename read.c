@@ -132,7 +132,7 @@ const floc *reading_file = 0;
 
 static struct goaldep *read_files = 0;
 
-static struct goaldep *eval_makefile (const char *filename, int flags);
+static struct goaldep *eval_makefile (const char *filename, short flags);
 static void eval (struct ebuffer *buffer, int flags);
 
 static long readline (struct ebuffer *ebuf);
@@ -312,7 +312,7 @@ restore_conditionals (struct conditionals *saved)
 }
 
 static struct goaldep *
-eval_makefile (const char *filename, int flags)
+eval_makefile (const char *filename, short flags)
 {
   struct goaldep *deps;
   struct ebuffer ebuf;
@@ -876,7 +876,7 @@ eval (struct ebuffer *ebuf, int set_default)
 
           p = allocated_variable_expand (p2);
 
-          /* If no filenames, it's a no-op.  */
+          /* If no filename(s), it's a no-op.  */
           if (*p == '\0')
             {
               free (p);
@@ -901,9 +901,9 @@ eval (struct ebuffer *ebuf, int set_default)
           while (files != 0)
             {
               struct nameseq *next = files->next;
-              int flags = (RM_INCLUDED | RM_NO_TILDE
-                           | (noerror ? RM_DONTCARE : 0)
-                           | (set_default ? 0 : RM_NO_DEFAULT_GOAL));
+              short flags = (RM_INCLUDED | RM_NO_TILDE
+                             | (noerror ? RM_DONTCARE : 0)
+                             | (set_default ? 0 : RM_NO_DEFAULT_GOAL));
 
               struct goaldep *d = eval_makefile (files->name, flags);
 
@@ -935,7 +935,7 @@ eval (struct ebuffer *ebuf, int set_default)
 
           p = allocated_variable_expand (p2);
 
-          /* If no filenames, it's a no-op.  */
+          /* If no filename(s), it's a no-op.  */
           if (*p == '\0')
             {
               free (p);
@@ -1716,7 +1716,7 @@ conditional_line (char *line, int len, const floc *flocp)
       v = lookup_variable (var, i);
 
       conditionals->ignoring[o] =
-        ((v != 0 && *v->value != '\0') == (cmdtype == c_ifndef));
+        ((v != 0) == (cmdtype == c_ifndef));
 
       free (var);
     }
