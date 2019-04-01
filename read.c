@@ -2471,7 +2471,7 @@ readstring (struct ebuffer *ebuf)
     {
       int backslash = 0;
       const char *bol = eol;
-      const char *p;
+      char *p;
 
       /* Find the next newline.  At EOS, stop.  */
       p = eol = strchr (eol , '\n');
@@ -2481,7 +2481,19 @@ readstring (struct ebuffer *ebuf)
           return 0;
         }
 
-      /* Found a newline; if it's escaped continue; else we're done.  */
+      /* Found a newline; delete trailing whitespace */
+      if (eol > bol && ISBLANK(eol[-1]))
+        {
+        p = eol - 1;
+        while (p > bol && ISBLANK(p[-1]))
+          p--;
+        memmove(p, eol, strlen(eol) + 1); /* put the newline back */
+        eol = p;
+        }
+
+      /* if the newline is escaped (i.e. line continuation) continue; else
+         we're done. */
+      p = eol;
       while (p > bol && *(--p) == '\\')
         backslash = !backslash;
       if (!backslash)
@@ -2538,6 +2550,7 @@ readline (struct ebuffer *ebuf)
         }
 
       /* Jump past the text we just read.  */
+      assert(len > 0);
       p += len;
 
       /* If the last char isn't a newline, the whole line didn't fit into the
@@ -2558,6 +2571,15 @@ readline (struct ebuffer *ebuf)
         }
 #endif
 
+      /* delete trailing whitespace */
+      if ((p - start) > 1 && ISBLANK(p[-2]))
+        {
+        p -= 2;
+        while (p > start && ISBLANK(p[-1]))
+          p--;
+        *p++ = '\n';  /* put the newline back */
+        *p = '\0';
+        }
       backslash = 0;
       for (p2 = p - 2; p2 >= start; --p2)
         {
