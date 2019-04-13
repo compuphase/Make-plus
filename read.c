@@ -641,8 +641,8 @@ eval (struct ebuffer *ebuf, int set_default)
       line = ebuf->buffer;
 
       /* If this is the first line, check for a UTF-8 BOM and skip it.  */
-      if (ebuf->floc.lineno == 1 && line[0] == (char)0xEF
-          && line[1] == (char)0xBB && line[2] == (char)0xBF)
+      if (ebuf->floc.lineno == 1 && (unsigned char)line[0] == 0xEF
+          && (unsigned char)line[1] == 0xBB && (unsigned char)line[2] == 0xBF)
         {
           line += 3;
           if (ISDB(DB_BASIC))
@@ -659,41 +659,47 @@ eval (struct ebuffer *ebuf, int set_default)
       if (line[0] == '\0')
         continue;
 
-      linelen = strlen (line);
+      /* When an assignment starts in the first column, rule context ends.
+         So check this first. The parsed data is not used, except to check for
+         a macro definition. */
+      if (filenames && !ISBLANK(line[0]))
+        {
+          p = line;
+          NEXT_TOKEN (p);
+          if (parse_var_assignment(p, &vmod) && vmod.assign_v)
+            record_waiting_files();
+        }
 
-      /* Check for a shell command line first.
-         If it is not one, we can stop treating cmd_prefix specially.  */
-      if (line[0] == cmd_prefix)
+      linelen = strlen(line);
+
+      /* Check for a shell command line first (a line that is indented below a
+         rule).
+         If there is no preceding rule line, don't treat this line as a
+         recipe, even though it is indented. */
+      if (filenames && ISBLANK(line[0]))
         {
           if (no_targets)
             /* Ignore the commands in a rule with no targets.  */
             continue;
 
-          /* If there is no preceding rule line, don't treat this line
-             as a command, even though it begins with a recipe prefix.
-             SunOS 4 make appears to behave this way.  */
+          if (ignoring)
+            /* Yep, this is a shell command, and we don't care.  */
+            continue;
 
-          if (filenames != 0)
+          if (commands_idx == 0)
+            cmds_started = ebuf->floc.lineno;
+
+          /* Append this command line to the line being accumulated.
+             Skip the initial command prefix character.  */
+          if (linelen + commands_idx > commands_len)
             {
-              if (ignoring)
-                /* Yep, this is a shell command, and we don't care.  */
-                continue;
-
-              if (commands_idx == 0)
-                cmds_started = ebuf->floc.lineno;
-
-              /* Append this command line to the line being accumulated.
-                 Skip the initial command prefix character.  */
-              if (linelen + commands_idx > commands_len)
-                {
-                  commands_len = (linelen + commands_idx) * 2;
-                  commands = xrealloc (commands, commands_len);
-                }
-              memcpy (&commands[commands_idx], line + 1, linelen - 1);
-              commands_idx += linelen - 1;
-              commands[commands_idx++] = '\n';
-              continue;
+              commands_len = (linelen + commands_idx) * 2;
+              commands = xrealloc (commands, commands_len);
             }
+          memcpy (&commands[commands_idx], line + 1, linelen - 1);
+          commands_idx += linelen - 1;
+          commands[commands_idx++] = '\n';
+          continue;
         }
 
       /* This line is not a shell command line.  Don't worry about whitespace.
@@ -708,9 +714,9 @@ eval (struct ebuffer *ebuf, int set_default)
           collapsed = xmalloc (collapsed_length);
         }
       strcpy (collapsed, line);
+      remove_comments (collapsed);
       /* Collapse continuation lines.  */
       collapse_continuations (collapsed);
-      remove_comments (collapsed);
 
       /* Get rid if starting space (including formfeed, vtab, etc.)  */
       p = collapsed;
@@ -1407,13 +1413,47 @@ eval (struct ebuffer *ebuf, int set_default)
 static void
 remove_comments (char *line)
 {
-  char *comment;
+  for ( ;; )
+    {
+      char *newline;
+      char *comment = find_char_unquote (line, MAP_COMMENT);
+      if (!comment)
+        break;
 
-  comment = find_char_unquote (line, MAP_COMMENT);
+      /* Remove everything between the the # and the \n (unless there isn't
+         one); also: continuations must also be handled */
+      newline = strchr (comment, '\n');
+      if (newline)
+        {
+          /* First remove space between the \n and the \ that comes before it. */
+          char *p = newline;
+          while (p > comment && ISBLANK(p[-1]))
+            --p;
+          if (p[-1] == '\\')
+            {
+              char *bs = p;     /* point to behind the \ */
+              int backslash = 1;
+              --p;
+              while (p > comment && p[-1] == '\\')
+                {
+                  --p;
+                  backslash = !backslash;
+                }
+              if (backslash)
+                {
+                  if (bs != newline)
+                    memmove(bs, newline, strlen(newline) + 1);
+                  newline = bs - 1; /* keep the \ */
+                }
+            }
+          /* Now remove everything between the # and the \n. */
+          memmove(comment, newline, strlen(newline) + 1);
+        }
+      else
+        *comment = '\0';
 
-  if (comment != 0)
-    /* Cut off the line at the #.  */
-    *comment = '\0';
+      line = comment;
+    }
 }
 
 /* Execute a 'undefine' directive.

@@ -549,6 +549,8 @@ void dir_setup_glob (glob_t *);
 void hash_init_directories (void);
 
 void read_config (char *argv0);
+void clear_config (void);
+char *get_default_variable (const char *name);
 void define_default_variables (void);
 void undefine_default_variables (void);
 void set_default_suffixes (void);

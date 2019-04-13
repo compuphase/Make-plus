@@ -57,6 +57,16 @@ collapse_continuations (char *line)
   if (in == 0)
     return;
 
+  /* delete trailing whitespace */
+  if (in > line && ISBLANK(in[-1]))
+    {
+      char *p = in - 1;
+      while (p > line && ISBLANK(p[-1]))
+        --p;
+      memmove(p, in, strlen(in) + 1);   /* put the newline back */
+      in = p;
+    }
+
   out = in;
   while (out > line && out[-1] == '\\')
     --out;
@@ -93,7 +103,7 @@ collapse_continuations (char *line)
              In traditional GNU make all trailing whitespace, consecutive
              backslash/newlines, and any leading non-newline whitespace on the
              next line is reduced to a single space.
-             In POSIX, each backslash/newline and is replaced by a space.  */
+             In POSIX, each backslash/newline is replaced by a space.  */
           while (ISBLANK (*in))
             ++in;
           if (! posix_pedantic)

@@ -37,11 +37,12 @@ static const char *default_variables[] =
     0, 0
   };
 
-struct stringlist {
-  struct stringlist *next;
-  const char *line;
-};
-static struct stringlist slroot = { 0, 0 };
+struct textline
+  {
+    struct textline *next;
+    const char *line;
+  };
+static struct textline textroot = { 0, 0 };
 
 static char *striptrailing(char *line)
 {
@@ -59,11 +60,11 @@ static char *skipleading(const char *line)
   return (char*)line;
 }
 
-static char *collect_commandlines (struct stringlist *base)
+static char *collect_commandlines (struct textline *base)
 {
   size_t length = 0;
   char *cmdlist;
-  struct stringlist *item;
+  struct textline *item;
 
   for (item = base; item && ISBLANK(item->line[0]); item = item->next)
     length += strlen(skipleading(item->line)) + 1;
@@ -80,12 +81,13 @@ static char *collect_commandlines (struct stringlist *base)
 
 /* Read the make "config" file, with the "built-in" variables, pattern rules
    and suffix rules. */
-void read_config (char *argv0)
+void
+read_config (char *argv0)
 {
   PATH_VAR(cfgfile);
   char *ptr, *line;
   FILE *fcfg;
-  struct stringlist *item, *tail;
+  struct textline *item, *tail;
 
 #if defined(__MSDOS__)
   strcpy(cfgfile, argv0);
@@ -114,7 +116,7 @@ void read_config (char *argv0)
       fclose(fcfg);
       return;
     }
-  tail = &slroot;
+  tail = &textroot;
   while (fgets(line, LINELENGTH, fcfg))
     {
     /* strip trailing whitespace, strip comments, collect lines */
@@ -124,7 +126,7 @@ void read_config (char *argv0)
       concat = 0;
       striptrailing(line);
       ptr = strchr(line, '\0');
-      if (ptr > line && *(ptr - 1) != '\\')
+      if (ptr > line && *(ptr - 1) == '\\')
         {
           *--ptr = '\0';            /* erase \ */
           /* check for double \\ at the end of line */
@@ -153,7 +155,7 @@ void read_config (char *argv0)
     /* append the line to the string list (but ignore empty strings) */
     if (*line)
       {
-        item = xmalloc(sizeof(struct stringlist));
+        item = xmalloc(sizeof(struct textline));
         if (item)
           {
             item->line = xstrdup(line);
@@ -169,8 +171,55 @@ void read_config (char *argv0)
   #undef LINELENGTH
 }
 
-/* Set up the default .SUFFIXES list.  */
+/* Free all strings read from the configuration file. */
+void
+clear_config (void)
+{
+  while (textroot.next)
+    {
+      struct textline *item = textroot.next;
+      textroot.next = item->next; /* unlink first */
+      free((void*)item->line);
+      free(item);
+    }
+}
 
+
+static char *
+is_variable (const char *line, char *name, size_t namelength)
+{
+  char *ptr;
+  if (!ISBLANK(line[0]) && (ptr = strchr(line, '=')) != NULL)
+    {
+      size_t length = ptr - line;
+      if (length >= namelength)
+        length = namelength - 1;
+      strncpy (name, line, length);
+      name[length] = '\0';
+      while (length > 0 && name[length - 1] == ':')
+        name[--length] = '\0';
+      striptrailing(name);
+      return skipleading(ptr + 1);
+    }
+  return NULL;
+}
+
+char *
+get_default_variable (const char *name)
+{
+  struct textline *item;
+  for (item = textroot.next; item; item = item->next)
+    {
+      char vname[128];
+      char *ptr = is_variable (item->line, vname, sizeof (vname));
+      if (ptr != NULL && strcasecmp(vname, name) == 0)
+        return ptr;
+    }
+  return NULL;
+}
+
+
+/* Set up the default .SUFFIXES list.  */
 void
 set_default_suffixes (void)
 {
@@ -181,12 +230,12 @@ set_default_suffixes (void)
     define_variable_cname ("SUFFIXES", "", o_default, 0);
   else
     {
-      struct stringlist *item;
+      struct textline *item;
       struct dep *d;
       char *suffixes = NULL;
       const char *p;
       /* find all .SUFFIXES pseudo-targets and add them to the list */
-      for (item = slroot.next; item; item = item->next)
+      for (item = textroot.next; item; item = item->next)
         {
           p = item->line;
           if (strncmp(p, ".SUFFIXES", 9) == 0 && ISBLANK(p[9]))
@@ -244,13 +293,13 @@ set_default_suffixes (void)
 void
 install_default_suffix_rules (void)
 {
-  struct stringlist *item;
+  struct textline *item;
 
   if (no_builtin_rules_flag)
     return;
 
   /* find all lines that match a suffix rule */
-  for (item = slroot.next; item; item = item->next)
+  for (item = textroot.next; item; item = item->next)
     {
       char *ptr;
       if (item->line[0] == '.' && (ptr = strchr(item->line, ':')) != NULL && *(ptr + 1) == '\0')
@@ -276,12 +325,12 @@ install_default_suffix_rules (void)
 void
 install_default_implicit_rules (void)
 {
-  struct stringlist *item;
+  struct textline *item;
 
   if (no_builtin_rules_flag)
     return;
 
-  for (item = slroot.next; item; item = item->next)
+  for (item = textroot.next; item; item = item->next)
     {
       char *pct, *clm;
       if (!ISBLANK(item->line[0]) && (pct = strchr(item->line, '%')) != NULL && (clm = strchr(pct, ':')) != NULL && *(clm + 1) != '=')
@@ -309,7 +358,7 @@ install_default_implicit_rules (void)
 void
 define_default_variables (void)
 {
-  struct stringlist *item;
+  struct textline *item;
   const char **s;
 
   /* A few variables are hard-coded (although they can be overriden by the
@@ -320,31 +369,21 @@ define_default_variables (void)
   if (no_builtin_variables_flag)
     return;
 
-  for (item = slroot.next; item; item = item->next)
+  for (item = textroot.next; item; item = item->next)
     {
-      char *ptr;
-      if (!ISBLANK(item->line[0]) && (ptr = strchr(item->line, '=')) != NULL)
-        {
-          char name[128];
-          size_t length = ptr - item->line;
-          assert (length < sizeof(name));
-          strncpy (name, item->line, length);
-          name[length] = '\0';
-          while (length > 0 && name[length - 1] == ':')
-            name[--length] = '\0';
-          striptrailing(name);
-          ptr = skipleading(ptr + 1);
-          define_variable (name, strlen (name), ptr, o_default, 1);
-        }
+      char vname[128];
+      const char *ptr = is_variable (item->line, vname, sizeof (vname));
+      if (ptr != NULL)
+        define_variable (vname, strlen (vname), ptr, o_default, 1);
     }
 }
 
 void
 undefine_default_variables (void)
 {
-  struct stringlist *item;
+  struct textline *item;
 
-  for (item = slroot.next; item; item = item->next)
+  for (item = textroot.next; item; item = item->next)
     {
       char *ptr;
       if (!ISBLANK(item->line[0]) && (ptr = strchr(item->line, '=')) != NULL)
