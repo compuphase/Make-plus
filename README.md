@@ -1,6 +1,11 @@
 # GNU Make - patched
 This is a forked version of GNU make with a few additions and changes to enhance its ease of use. Several of these changes are inspired by Opus Make version 6.1 from 1998. In adding these features to GNU Make, I have come to appreciate how advanced Opus Make was 20 years ago.
 
+## A recipe starts with an indent of 4 spaces or a TAB character
+Any combination of white-space that gives a visible indentation of four spaces or more, is valid for a recipe line (a shell line below a rule). Existing makefiles (that use TABs) still work; one or more spaces followed by a TAB is fine too. The [Wiki](../../wiki/Rationale-for-the-recipe-prefix) has further motivation for changing the recipe prefix.
+
+At the same time, the special variable `.RECIPEPREFIX` is removed, motivation for removing it is also in the [Wiki](../../wiki/Rationale-for-removing-special-variable-.RECIPEPREFIX).
+
 ## .path - VPATH for targets
 The new `.path` command is essentially a `VPATH` for targets. It allows you to easily separate intermediate files and output files from source files, while keeping the makefile clean and simple. For a motivation for adding `.path` see the [Wiki](../../wiki/Rationale-for-the-.path-directive)
 
@@ -41,7 +46,7 @@ The predefined variables for targets and prerequisites are cryptic and difficult
 | $?       | $(.NEWSOURCES) |A space-separated list of all prerequisites that are newer than the target. |
 | $^       | $(.SOURCES)  | A space-separated list of all prerequisites, where duplicate names have been removed. |
 | $+       | $(.SOURCES+) | A space-separated list of all prerequisites, without removing duplicate names. |
-| $*       |              | The stem with which an implicit rule matches (or in an explicit rule, $@ without its suffix). |
+| $*       | $(.STEM)     | The stem with which an implicit rule matches (or in an explicit rule, $@ without its suffix). |
 | $%       |              | The name of the member in the target, in the case that the target is a library. |
 | $&vert;  |              | A space-separated list of order-only prerequisites. |
 
