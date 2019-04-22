@@ -372,10 +372,8 @@ undefine_variable_in_set (const char *name, unsigned int length,
 
 /* If the variable passed in is "special", handle its special nature.
    Currently there are two such variables, both used for introspection:
-   .VARIABLES expands to a list of all the variables defined in this instance
-   of make.
-   .TARGETS expands to a list of all the targets defined in this
-   instance of make.
+   .VARIABLES expands to a list of all the variables defined in this instance of make.
+   .TARGETS expands to a list of all the targets defined in this instance of make.
    Returns the variable reference passed in.  */
 
 #define EXPANSION_INCREMENT(_l)  ((((_l) / 500) + 1) * 500)
@@ -388,10 +386,10 @@ lookup_special_var (struct variable *var)
 
   /* This one actually turns out to be very hard, due to the way the parser
      records targets.  The way it works is that target information is collected
-     internally until make knows the target is completely specified.  It unitl
-     it sees that some new construct (a new target or variable) is defined that
-     it knows the previous one is done.  In short, this means that if you do
-     this:
+     internally until make knows the target is completely specified.  It's not
+     until it sees that some new construct (a new target or variable) is defined
+     that it knows the previous one is done.  In short, this means that if you
+     do this:
 
        all:
 
@@ -1161,14 +1159,7 @@ target_environment (struct file *file)
 static struct variable *
 set_special_var (struct variable *var)
 {
-  if (streq (var->name, RECIPEPREFIX_NAME))
-    {
-      /* The user is resetting the command introduction prefix.  This has to
-         happen immediately, so that subsequent rules are interpreted
-         properly.  */
-      cmd_prefix = var->value[0]=='\0' ? RECIPEPREFIX_DEFAULT : var->value[0];
-    }
-
+  /* If needed, special processing can be done here. */
   return var;
 }
 

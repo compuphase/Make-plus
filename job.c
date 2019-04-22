@@ -1177,13 +1177,12 @@ start_job_command (struct child *child)
   /* POSIX requires that a recipe prefix after a backslash-newline should
      be ignored.  Remove it now so the output is correct.  */
   {
-    char prefix = child->file->cmds->recipe_prefix;
     char *p1, *p2;
     p1 = p2 = p;
     while (*p1 != '\0')
       {
         *(p2++) = *p1;
-        if (p1[0] == '\n' && p1[1] == prefix)
+        if (p1[0] == '\n' && p1[1] == '\t')
           ++p1;
         ++p1;
       }

@@ -156,6 +156,7 @@ set_file_variables (struct file *file)
   DEFINE_VARIABLE ("%", 1, member);
 
   DEFINE_VARIABLE (".SOURCE", 7, source);   /* full names */
+  DEFINE_VARIABLE (".STEM", 5, stem);
   DEFINE_VARIABLE (".TARGET", 7, target);
 
   /* Compute the values for $^, $+, $?, and $|.  */
@@ -698,7 +699,7 @@ print_commands (const struct commands *cmds)
           bs = *end == '\\' ? !bs : 0;
         }
 
-      printf ("%c%.*s\n", cmd_prefix, (int) (end - s), s);
+      printf ("\t%.*s\n", (int) (end - s), s);
 
       s = end + (end[0] == '\n');
     }

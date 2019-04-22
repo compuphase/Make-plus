@@ -326,10 +326,6 @@ int rebuilding_makefiles = 0;
 
 struct variable shell_var;
 
-/* This character introduces a command: it's the first char on the line.  */
-
-char cmd_prefix = '\t';
-
 
 /* The usage output.  We write it this way to make life easier for the
    translators, especially those trying to translate to right-to-left
@@ -409,7 +405,11 @@ static const char *const usage[] =
   -W FILE, --what-if=FILE, --new-file=FILE, --assume-new=FILE\n\
                               Consider FILE to be infinitely new.\n"),
     N_("\
-  --warn-undefined-variables  Warn when an undefined variable is referenced.\n"),
+  --warn-undefined-macros, --warn-undefined-variables\n\
+                              Warn when an undefined macro is referenced.\n"),
+    N_("\
+  --no-warn-undefined-macros, --no-warn-undefined-variables\n\
+                              Silently ignore references to undefined macros.\n"),
     NULL
   };
 
@@ -437,7 +437,7 @@ static const struct command_switch switches[] =
     { 'q', flag, &question_flag, 1, 1, 1, 0, 0, "question" },
     { 'r', flag, &no_builtin_rules_flag, 1, 1, 0, 0, 0, "no-builtin-rules" },
     { 'R', flag, &no_builtin_variables_flag, 1, 1, 0, 0, 0,
-      "no-builtin-variables" },
+      "no-builtin-macros" },
     { 's', flag, &silent_flag, 1, 1, 0, 0, 0, "silent" },
     { 'S', flag_off, &keep_going_flag, 1, 1, 0, 0, &default_keep_going_flag,
       "no-keep-going" },
@@ -465,16 +465,13 @@ static const struct command_switch switches[] =
 
     /* These are long-style options.  */
     { CHAR_MAX+1, strlist, &db_flags, 1, 1, 0, "basic", 0, "debug" },
-    { CHAR_MAX+2, string, &jobserver_auth, 1, 1, 0, 0, 0, "jobserver-auth" },
-    { CHAR_MAX+3, flag, &trace_flag, 1, 1, 0, 0, 0, "trace" },
-    { CHAR_MAX+4, flag, &inhibit_print_directory_flag, 1, 1, 0, 0, 0,
-      "no-print-directory" },
-    { CHAR_MAX+5, flag, &warn_undefined_variables_flag, 1, 1, 0, 0, &default_warn_undef_vars,
-      "warn-undefined-variables" },
-    { CHAR_MAX+6, flag_off, &warn_undefined_variables_flag, 1, 1, 0, 0, &default_warn_undef_vars,
-      "no-warn-undefined-variables" },
-    { CHAR_MAX+7, strlist, &eval_strings, 1, 0, 0, 0, 0, "eval" },
-    { CHAR_MAX+8, string, &sync_mutex, 1, 1, 0, 0, 0, "sync-mutex" },
+    { CHAR_MAX+2, strlist, &eval_strings, 1, 0, 0, 0, 0, "eval" },
+    { CHAR_MAX+3, string, &jobserver_auth, 1, 1, 0, 0, 0, "jobserver-auth" },
+    { CHAR_MAX+4, flag, &inhibit_print_directory_flag, 1, 1, 0, 0, 0, "no-print-directory" },
+    { CHAR_MAX+5, string, &sync_mutex, 1, 1, 0, 0, 0, "sync-mutex" },
+    { CHAR_MAX+6, flag, &trace_flag, 1, 1, 0, 0, 0, "trace" },
+    { CHAR_MAX+7, flag, &warn_undefined_variables_flag, 1, 1, 0, 0, &default_warn_undef_vars, "warn-undefined-macros" },
+    { CHAR_MAX+8, flag_off, &warn_undefined_variables_flag, 1, 1, 0, 0, &default_warn_undef_vars, "no-warn-undefined-macros" },
     { 0, 0, 0, 0, 0, 0, 0, 0, 0 }
   };
 
@@ -491,6 +488,9 @@ static struct option long_option_aliases[] =
     { "dry-run",        no_argument,            0, 'n' },
     { "recon",          no_argument,            0, 'n' },
     { "makefile",       required_argument,      0, 'f' },
+    { "no-builtin-variables",        no_argument,  0, 'R' },
+    { "warn-undefined-variables",    no_argument,  0, CHAR_MAX+7 },
+    { "no-warn-undefined-variables", no_argument,  0, CHAR_MAX+8 },
   };
 
 /* List of goal targets.  */
@@ -1329,7 +1329,6 @@ main (int argc, char **argv, char **envp)
   /* Initialize the special variables.  */
   define_variable_cname (".VARIABLES", "", o_default, 0)->special = 1;
   /* define_variable_cname (".TARGETS", "", o_default, 0)->special = 1; */
-  define_variable_cname (".RECIPEPREFIX", "", o_default, 0)->special = 1;
   define_variable_cname (".SHELLFLAGS", "-c", o_default, 0);
   define_variable_cname (".LOADED", "", o_default, 0);
 

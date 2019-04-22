@@ -385,7 +385,6 @@ install_pattern_rule (struct pspec *p, int terminal)
          anyway because somebody might want to free them later.  */
       r->cmds->commands = xstrdup (p->commands);
       r->cmds->command_lines = 0;
-      r->cmds->recipe_prefix = RECIPEPREFIX_DEFAULT;
     }
 }
 
@@ -448,7 +447,7 @@ create_pattern_rule (const char **targets, const char **target_percents,
   unsigned int i;
   struct rule *r = xmalloc (sizeof (struct rule));
 
-  r->num = n;
+  r->num = (unsigned short) n;
   r->cmds = commands;
   r->deps = deps;
   r->targets = targets;

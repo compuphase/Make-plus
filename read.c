@@ -140,18 +140,20 @@ static void do_undefine (char *name, enum variable_origin origin,
                          struct ebuffer *ebuf);
 static struct variable *do_define (char *name, enum variable_origin origin,
                                    struct ebuffer *ebuf);
+static int is_conditional (const char *line);
 static int conditional_line (char *line, int len, const floc *flocp);
 static void record_files (struct nameseq *filenames, const char *pattern,
                           const char *pattern_percent, char *depstr,
                           unsigned int cmds_started, char *commands,
                           unsigned int commands_idx, int two_colon,
-                          char prefix, const floc *flocp);
+                          const floc *flocp);
 static void record_target_var (struct nameseq *filenames, char *defn,
                                enum variable_origin origin,
                                struct vmodifiers *vmod,
                                const floc *flocp);
 static enum make_word_type get_next_mword (char *buffer, char *delim,
                                            char **startp, unsigned int *length);
+static int is_recipe_prefix (const char *line);
 static void remove_comments (char *line);
 static char *find_char_unquote (char *string, int map);
 static char *unescape_char (char *string, int c);
@@ -580,7 +582,6 @@ eval (struct ebuffer *ebuf, int set_default)
   char *depstr = 0;
   long nlines = 0;
   int two_colon = 0;
-  char prefix = cmd_prefix;
   const char *pattern = 0;
   const char *pattern_percent;
   floc *fstart;
@@ -595,7 +596,7 @@ eval (struct ebuffer *ebuf, int set_default)
           fi.offset = 0;                                                      \
           record_files (filenames, pattern, pattern_percent, depstr,          \
                         cmds_started, commands, commands_idx, two_colon,      \
-                        prefix, &fi);                                         \
+                        &fi);                                                 \
           filenames = 0;                                                      \
         }                                                                     \
       commands_idx = 0;                                                       \
@@ -662,11 +663,9 @@ eval (struct ebuffer *ebuf, int set_default)
       /* When an assignment starts in the first column, rule context ends.
          So check this first. The parsed data is not used, except to check for
          a macro definition. */
-      if (filenames && !ISBLANK(line[0]))
+      if (filenames && !is_recipe_prefix (line) && !ignoring)
         {
-          p = line;
-          NEXT_TOKEN (p);
-          if (parse_var_assignment(p, &vmod) && vmod.assign_v)
+          if (parse_var_assignment (line, &vmod) && vmod.assign_v)
             record_waiting_files();
         }
 
@@ -675,22 +674,28 @@ eval (struct ebuffer *ebuf, int set_default)
       /* Check for a shell command line first (a line that is indented below a
          rule).
          If there is no preceding rule line, don't treat this line as a
-         recipe, even though it is indented. */
-      if (filenames && ISBLANK(line[0]))
+         recipe, even though it is indented. Conditionals must be handled in
+         recipes (other directives are not handled). */
+      if (filenames && is_recipe_prefix (line) && !is_conditional (line))
         {
           if (no_targets)
-            /* Ignore the commands in a rule with no targets.  */
-            continue;
+            continue; /* Ignore the commands in a rule with no targets.  */
 
           if (ignoring)
-            /* Yep, this is a shell command, and we don't care.  */
-            continue;
+            continue; /* Yep, this is a shell command, and we don't care.  */
+
+          NEXT_TOKEN (line);  /* skip the indent (recipe prefix) */
+
+          /* If this line is a comment (but with a recipe prefix, cut the
+             comment off, but continue to add an empty line to the recipe. */
+          if (*line == '#')
+            *line = '\0';
 
           if (commands_idx == 0)
             cmds_started = ebuf->floc.lineno;
 
           /* Append this command line to the line being accumulated.
-             Skip the initial command prefix character.  */
+             Note: the indentation (recipe prefix) was already skipped.  */
           if (linelen + commands_idx > commands_len)
             {
               commands_len = (linelen + commands_idx) * 2;
@@ -988,11 +993,11 @@ eval (struct ebuffer *ebuf, int set_default)
           continue;
         }
 
-      /* This line starts with a tab but was not caught above because there
-         was no preceding target, and the line might have been usable as a
-         variable definition.  But now we know it is definitely lossage.  */
-      if (line[0] == cmd_prefix)
-        O (fatal, fstart, _("recipe commences before first target"));
+      /* This line starts with white-space, but was not caught above because
+         there was no preceding target, and the line might have been usable as
+         a variable definition.  But now we know it is definitely lossage.  */
+      if (is_recipe_prefix (line))
+        O (fatal, fstart, _("syntax error: presumed shell line, but missing a target"));
 
       /* This line describes some target files.  This is complicated by
          the existence of target-specific variables, because we can't
@@ -1127,13 +1132,7 @@ eval (struct ebuffer *ebuf, int set_default)
           {
             if (*p2 == '\0')
               continue;
-
-            /* There's no need to be ivory-tower about this: check for
-               one of the most common bugs found in makefiles...  */
-            if (cmd_prefix == '\t' && strneq (line, "        ", 8))
-              O (fatal, fstart, _("missing separator (did you mean TAB instead of 8 spaces?)"));
-            else
-              O (fatal, fstart, _("missing separator"));
+            O (fatal, fstart, _("missing operator, missing idendation, or unrecognized directive"));
           }
 
         /* Make the colon the end-of-string so we know where to stop
@@ -1195,9 +1194,6 @@ eval (struct ebuffer *ebuf, int set_default)
         /* This is a normal target, _not_ a target-specific variable.
            Unquote any = in the dependency list.  */
         find_char_unquote (lb_next, MAP_EQUALS);
-
-        /* Remember the command prefix for this target.  */
-        prefix = cmd_prefix;
 
         /* We have some targets, so don't ignore the following commands.  */
         no_targets = 0;
@@ -1407,6 +1403,19 @@ eval (struct ebuffer *ebuf, int set_default)
 }
 
 
+/* Check whether a line starts with either a tab, or with at least 4 spaces.
+   The criterion is a visible indentation; a space followed by a tab is ok
+   (because it gives an indent like a tab), and two spaces followed by a tab
+   is fine too. */
+
+static int
+is_recipe_prefix (const char *line)
+{
+  assert(line);
+  return line[0] == '\t' ||
+         (line[0] == ' ' && (line[1] == '\t' || (line[1] == ' ' && (line[2] == '\t' || (line[2] == ' ' && ISBLANK(line[3]))))));
+}
+
 /* Remove comments from LINE.
    This is done by copying the text at LINE onto itself.  */
 
@@ -1538,7 +1547,7 @@ do_define (char *name, enum variable_origin origin, struct ebuffer *ebuf)
 
       /* If the line doesn't begin with a tab, test to see if it introduces
          another define, or ends one.  Stop if we find an 'endef' */
-      if (line[0] != cmd_prefix)
+      if (line[0] != '\t')
         {
           p = next_token (line);
           len = strlen (p);
@@ -1591,6 +1600,29 @@ do_define (char *name, enum variable_origin origin, struct ebuffer *ebuf)
   return (v);
 }
 
+
+/* Check whether the line starts with a conditional directive ("ifdef", "ifndef",
+   "ifeq", "ifneq", "else" and "endif"). This fuctions returns 0 or 1.  */
+static int
+is_conditional (const char *line)
+{
+  const char *p;
+  int len;
+
+  NEXT_TOKEN (line);
+  p = end_of_token (line);
+  len = p - line;
+
+#define word1eq(s)      (len == CSTRLEN (s) && strneq (s, line, CSTRLEN (s)))
+  return word1eq ("ifdef") ||
+         word1eq ("ifndef") ||
+         word1eq ("ifeq") ||
+         word1eq ("ifneq") ||
+         word1eq ("else") ||
+         word1eq ("endif");
+#undef word1eq
+}
+
 /* Interpret conditional commands "ifdef", "ifndef", "ifeq",
    "ifneq", "else" and "endif".
    LINE is the input line, with the command as its first word.
@@ -1979,7 +2011,7 @@ record_files (struct nameseq *filenames, const char *pattern,
               const char *pattern_percent, char *depstr,
               unsigned int cmds_started, char *commands,
               unsigned int commands_idx, int two_colon,
-              char prefix, const floc *flocp)
+              const floc *flocp)
 {
   struct commands *cmds;
   struct dep *deps;
@@ -2006,7 +2038,6 @@ record_files (struct nameseq *filenames, const char *pattern,
       cmds->fileinfo.offset = 0;
       cmds->commands = xstrndup (commands, commands_idx);
       cmds->command_lines = 0;
-      cmds->recipe_prefix = prefix;
     }
   else
      cmds = 0;

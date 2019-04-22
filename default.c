@@ -212,7 +212,7 @@ get_default_variable (const char *name)
     {
       char vname[128];
       char *ptr = is_variable (item->line, vname, sizeof (vname));
-      if (ptr != NULL && strcasecmp(vname, name) == 0)
+      if (ptr != NULL && streq(vname, name))
         return ptr;
     }
   return NULL;
@@ -313,7 +313,6 @@ install_default_suffix_rules (void)
           f->cmds->fileinfo.filenm = 0;
           f->cmds->commands = collect_commandlines(item->next);
           f->cmds->command_lines = 0; /* adjusted by chop_commands() */
-          f->cmds->recipe_prefix = RECIPEPREFIX_DEFAULT;
           f->builtin = 1;
         }
     }
