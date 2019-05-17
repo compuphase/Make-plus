@@ -1,5 +1,5 @@
-# GNU Make - patched
-This is a forked version of GNU make with a few additions and changes to enhance its ease of use. Several of these changes are inspired by Opus Make version 6.1 from 1998. In adding these features to GNU Make, I have come to appreciate how advanced Opus Make was 20 years ago.
+# Make+
+This is a forked version of GNU 4.2.1 make with a few additions and changes to enhance its ease of use. Several of these changes are inspired by Opus Make version 6.1 from 1998. In adding these features to GNU Make, I have come to appreciate how advanced Opus Make was 20 years ago.
 
 ## A recipe starts with an indent of 4 spaces or a TAB character
 Any combination of white-space that gives a visible indentation of four spaces or more, is valid for a recipe line (a shell line below a rule). Existing makefiles (that use TABs) still work; one or more spaces followed by a TAB is fine too. The [Wiki](../../wiki/Rationale-for-the-recipe-prefix) has further motivation for changing the recipe prefix.
