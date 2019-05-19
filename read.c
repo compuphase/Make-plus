@@ -15,9 +15,6 @@ You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
-
-#include <assert.h>
-
 #include "filedef.h"
 #include "dep.h"
 #include "job.h"
@@ -27,6 +24,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "debug.h"
 #include "hash.h"
 
+#include <assert.h>
 
 #ifdef WINDOWS32
 #include <windows.h>
@@ -685,6 +683,7 @@ eval (struct ebuffer *ebuf, int set_default)
             continue; /* Yep, this is a shell command, and we don't care.  */
 
           NEXT_TOKEN (line);  /* skip the indent (recipe prefix) */
+          linelen = strlen(line);
 
           /* If this line is a comment (but with a recipe prefix, cut the
              comment off, but continue to add an empty line to the recipe. */
@@ -696,13 +695,13 @@ eval (struct ebuffer *ebuf, int set_default)
 
           /* Append this command line to the line being accumulated.
              Note: the indentation (recipe prefix) was already skipped.  */
-          if (linelen + commands_idx > commands_len)
+          if (linelen + commands_idx + 1 > commands_len)
             {
-              commands_len = (linelen + commands_idx) * 2;
+              commands_len = (linelen + commands_idx + 1) * 2;
               commands = xrealloc (commands, commands_len);
             }
-          memcpy (&commands[commands_idx], line + 1, linelen - 1);
-          commands_idx += linelen - 1;
+          memcpy (&commands[commands_idx], line, linelen);
+          commands_idx += linelen;
           commands[commands_idx++] = '\n';
           continue;
         }
@@ -1547,6 +1546,7 @@ do_define (char *name, enum variable_origin origin, struct ebuffer *ebuf)
 
       /* If the line doesn't begin with a tab, test to see if it introduces
          another define, or ends one.  Stop if we find an 'endef' */
+	  //??? with the new recipe-indentation rule, this code must always run
       if (line[0] != '\t')
         {
           p = next_token (line);

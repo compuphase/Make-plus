@@ -24,6 +24,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include <windows.h>
 #include "w32err.h"
 #endif
+#include <assert.h>
 
 #if VMS
 # define FILE_LIST_SEPARATOR (vms_comma_separator ? ',' : ' ')
@@ -58,6 +59,43 @@ dep_hash_cmp (const void *x, const void *y)
   return strcmp (dep_name (dx), dep_name (dy));
 }
 
+static unsigned int
+escaped_name_length (const char *name)
+{
+  unsigned int len;
+  assert (name);
+  len = strlen (name);
+  /* Add 1 for every space in the name (because the escape character is put back). */
+  while (*name)
+    {
+      if (*name == ' ')
+        len++;
+      name++;
+    }
+  return len;
+}
+
+static void
+copy_escaped_name (char *dest, const char *name, int terminate)
+{
+  assert (dest);
+  assert (name);
+  while (*name)
+    {
+      if (*name == ' ')
+        *dest++ = '\\';
+      *dest++ = *name++;
+    }
+  if (terminate)
+    *dest = '\0';
+}
+
+#define dup_escaped_name(target, name) \
+  do { \
+    target = alloca (escaped_name_length (name) + 1); \
+    copy_escaped_name ((target), (name), 1); \
+  } while (0);
+
 /* Set FILE's automatic variables up.  */
 
 void
@@ -80,17 +118,17 @@ set_file_variables (struct file *file)
       p = alloca (cp - file->name + 1);
       memcpy (p, file->name, cp - file->name);
       p[cp - file->name] = '\0';
-      target = p;
+      dup_escaped_name (target, p);
       len = strlen (cp + 1);
       p = alloca (len);
       memcpy (p, cp + 1, len - 1);
       p[len - 1] = '\0';
-      member = p;
+      dup_escaped_name (member, p);
     }
   else
 #endif  /* NO_ARCHIVES.  */
     {
-      target = file->name;
+      dup_escaped_name (target, file->name);
       member = "";
     }
 
@@ -128,7 +166,7 @@ set_file_variables (struct file *file)
       if (d == 0)
         file->stem = "";
     }
-  stem = file->stem;
+  dup_escaped_name (stem, file->stem);
 
   /* $< is the first not order-only dependency.  */
   source = "";
@@ -136,7 +174,7 @@ set_file_variables (struct file *file)
     if (!d->ignore_mtime)
       {
         if (!d->need_2nd_expansion)
-          source = dep_name (d);
+          dup_escaped_name(source, dep_name (d));
         break;
       }
 
@@ -185,9 +223,9 @@ set_file_variables (struct file *file)
         if (!d->need_2nd_expansion)
           {
             if (d->ignore_mtime)
-              orderonly_len += strlen (dep_name (d)) + 1;
+              orderonly_len += escaped_name_length (dep_name (d)) + 1;
             else
-              sourcesdup_len += strlen (dep_name (d)) + 1;
+              sourcesdup_len += escaped_name_length (dep_name (d)) + 1;
           }
       }
 
@@ -212,13 +250,13 @@ set_file_variables (struct file *file)
           if (ar_name (c))
             {
               c = strchr (c, '(') + 1;
-              len = strlen (c) - 1;
+              len = escaped_name_length (c) - 1;
             }
           else
 #endif
-            len = strlen (c);
+            len = escaped_name_length (c);
 
-          memcpy (cp, c, len);
+          copy_escaped_name (cp, c, 0);
           cp += len;
           *cp++ = FILE_LIST_SEPARATOR;
           if (! (d->changed || always_make_flag))
@@ -236,7 +274,10 @@ set_file_variables (struct file *file)
     cp = sources = sourcesdup; /* Reuse the buffer; it's big enough.  */
 
     if (newsources_len > newsources_max)
-      newsources = xrealloc (newsources, newsources_max = newsources_len);
+      {
+        newsources_max = newsources_len;
+        newsources = xrealloc (newsources, newsources_max);
+      }
     qp = newsources;
 
     if (orderonly_len > orderonly_max)
@@ -282,26 +323,26 @@ set_file_variables (struct file *file)
         if (ar_name (c))
           {
             c = strchr (c, '(') + 1;
-            len = strlen (c) - 1;
+            len = escaped_name_length (c) - 1;
           }
         else
 #endif
-          len = strlen (c);
+          len = escaped_name_length (c);
 
         if (d->ignore_mtime)
           {
-            memcpy (bp, c, len);
+            copy_escaped_name (bp, c, 0);
             bp += len;
             *bp++ = FILE_LIST_SEPARATOR;
           }
         else
           {
-            memcpy (cp, c, len);
+            copy_escaped_name (cp, c, 0);
             cp += len;
             *cp++ = FILE_LIST_SEPARATOR;
             if (d->changed || always_make_flag)
               {
-                memcpy (qp, c, len);
+                copy_escaped_name (qp, c, 0);
                 qp += len;
                 *qp++ = FILE_LIST_SEPARATOR;
               }

@@ -176,7 +176,7 @@ patsubst_expand_pat (char *o, const char *text,
   pattern_prepercent_len = pattern_percent - pattern - 1;
   pattern_postpercent_len = strlen (pattern_percent);
 
-  while ((t = find_next_token (&text, &len)) != 0)
+  while ((t = find_next_token (&text, &len)) != NULL)
     {
       int fail = 0;
 
@@ -424,25 +424,33 @@ func_join (char *o, char **argv, const char *funcname UNUSED)
   const char *pp;
   const char *list1_iterator = argv[0];
   const char *list2_iterator = argv[1];
+  const char *separator = argv[2];
+  unsigned int separator_length = (separator != NULL) ? strlen(separator) : 0;
   do
     {
       unsigned int len1, len2;
 
-      tp = find_next_token (&list1_iterator, &len1);
-      if (tp != 0)
+      tp = find_next_token_path (&list1_iterator, &len1);
+      pp = find_next_token_path (&list2_iterator, &len2);
+
+      if (tp != NULL)
         o = variable_buffer_output (o, tp, len1);
 
-      pp = find_next_token (&list2_iterator, &len2);
-      if (pp != 0)
-        o = variable_buffer_output (o, pp, len2);
+      /* Add separator only if there is a word before and after (and only
+         if there is a separator, of course). */
+      if (separator != NULL && tp != NULL && pp != NULL)
+        o = variable_buffer_output (o, separator, separator_length);
 
-      if (tp != 0 || pp != 0)
+      if (pp != NULL)
+        o = variable_buffer_output(o, pp, len2);
+
+      if (tp != NULL || pp != NULL)
         {
           o = variable_buffer_output (o, " ", 1);
           doneany = 1;
         }
     }
-  while (tp != 0 || pp != 0);
+  while (tp != NULL || pp != NULL);
   if (doneany)
     /* Kill the last blank.  */
     --o;
@@ -534,14 +542,13 @@ func_notdir_suffix (char *o, char **argv, const char *funcname)
     else
       vms_list_iterator[i] = list_iterator[i];
   vms_list_iterator[i] = list_iterator[i];
-  while ((p2 = find_next_token((const char**) &vms_list_iterator, &len)) != 0)
+  while ((p2 = find_next_token_path ((const char**) &vms_list_iterator, &len)) != NULL)
 #else
-  while ((p2 = find_next_token (&list_iterator, &len)) != 0)
+  while ((p2 = find_next_token_path (&list_iterator, &len)) != NULL)
 #endif
     {
       const char *p = p2 + len - 1;
-
-      while (p >= p2 && ! STOP_SET (*p, stop))
+      while (p >= p2 && (!STOP_SET(*p, stop) || (p[0] == '\\' && p[1] == ' ')))
         --p;
 
       if (p >= p2)
@@ -583,7 +590,6 @@ func_notdir_suffix (char *o, char **argv, const char *funcname)
   return o;
 }
 
-
 static char *
 func_basename_dir (char *o, char **argv, const char *funcname)
 {
@@ -606,17 +612,17 @@ func_basename_dir (char *o, char **argv, const char *funcname)
     else
       vms_p3[i] = p3[i];
   vms_p3[i] = p3[i];
-  while ((p2 = find_next_token((const char**) &vms_p3, &len)) != 0)
+  while ((p2 = find_next_token_path ((const char**) &vms_p3, &len)) != NULL)
 #else
-  while ((p2 = find_next_token (&p3, &len)) != 0)
+  while ((p2 = find_next_token_path (&p3, &len)) != NULL)
 #endif
     {
       const char *p = p2 + len - 1;
-      while (p >= p2 && ! STOP_SET (*p, stop))
+      while (p >= p2 && (!STOP_SET(*p, stop) || (p[0] == '\\' && p[1] == ' ')))
         --p;
 
       if (p >= p2 && (is_dir))
-        o = variable_buffer_output (o, p2, ++p - p2);
+        o = variable_buffer_output (o, p2, p - p2);
       else if (p >= p2 && (*p == '.'))
         o = variable_buffer_output (o, p2, p - p2);
 #ifdef HAVE_DOS_PATHS
@@ -629,13 +635,13 @@ func_basename_dir (char *o, char **argv, const char *funcname)
         {
           extern int vms_report_unix_paths;
           if (vms_report_unix_paths)
-            o = variable_buffer_output (o, "./", 2);
+            o = variable_buffer_output (o, ".", 1);
           else
             o = variable_buffer_output (o, "[]", 2);
         }
 #else
 #ifndef _AMIGA
-      o = variable_buffer_output (o, "./", 2);
+      o = variable_buffer_output (o, ".", 1);
 #else
       ; /* Just a nop...  */
 #endif /* AMIGA */
@@ -662,6 +668,56 @@ func_basename_dir (char *o, char **argv, const char *funcname)
 }
 
 static char *
+func_quote (char *o, char **argv, const char *funcname UNUSED)
+{
+  const char *list_iter = argv[0];
+  const char *start;
+  unsigned int len;
+  int doneany = 0;
+
+  while ((start = find_next_token_path (&list_iter, &len)) != NULL)
+    {
+      int addquote = 0;
+      unsigned int idx;
+      /* Check whether the token contains spaces */
+      for (idx = 0; idx < len && !addquote; idx++)
+        if (start[idx] == ' ')
+          addquote = 1;
+
+      if (addquote)
+        {
+          /* Remove escaped spaces from the string */
+          char *buf = xmalloc (len + 2);
+          char *tgt = buf;
+          unsigned int idx;
+          *tgt++ = '"';
+          for (idx = 0; idx < len; idx++)
+            {
+              if (start[0] == '\\' && start[1] == ' ')
+                {
+                  start++;
+                  len--;
+                }
+              *tgt++ = *start++;
+            }
+          *tgt = '"';
+          o = variable_buffer_output (o, buf, len + 2);
+          free((void*)buf);
+        }
+      else
+        o = variable_buffer_output (o, start, len);
+      o = variable_buffer_output (o, " ", 1);
+      doneany = 1;
+    }
+
+  if (doneany)
+    /* Kill the last space.  */
+    --o;
+
+  return o;
+}
+
+static char *
 func_addsuffix_addprefix (char *o, char **argv, const char *funcname)
 {
   int fixlen = strlen (argv[0]);
@@ -673,7 +729,7 @@ func_addsuffix_addprefix (char *o, char **argv, const char *funcname)
   const char *p;
   unsigned int len;
 
-  while ((p = find_next_token (&list_iterator, &len)) != 0)
+  while ((p = find_next_token_path (&list_iterator, &len)) != NULL)
     {
       if (is_addprefix)
         o = variable_buffer_output (o, argv[0], fixlen);
@@ -859,7 +915,7 @@ func_findstring (char *o, char **argv, const char *funcname UNUSED)
 static char *
 func_foreach (char *o, char **argv, const char *funcname UNUSED)
 {
-  /* expand only the first two.  */
+  /* Expand only the first two.  */
   char *varname = expand_argument (argv[0], NULL);
   char *list = expand_argument (argv[1], NULL);
   const char *body = argv[2];
@@ -877,7 +933,7 @@ func_foreach (char *o, char **argv, const char *funcname UNUSED)
   push_new_variable_scope ();
   var = define_variable (vp, strlen (vp), "", o_automatic, 0);
 
-  /* loop through LIST,  put the value in VAR and expand BODY */
+  /* Loop through LIST,  put the value in VAR and expand BODY */
   while ((p = find_next_token (&list_iterator, &len)) != 0)
     {
       char *result = 0;
@@ -2134,7 +2190,7 @@ abspath (const char *name, char *apath)
         }
     }
 
-  /* Unless it is root strip trailing separator.  */
+  /* Unless it, is root strip trailing separator.  */
   if (dest > apath + root_len && STOP_SET (dest[-1], MAP_DIRSEP))
     --dest;
 
@@ -2153,7 +2209,7 @@ func_realpath (char *o, char **argv, const char *funcname UNUSED)
   int doneany = 0;
   unsigned int len = 0;
 
-  while ((path = find_next_token (&p, &len)) != 0)
+  while ((path = find_next_token_path (&p, &len)) != 0)
     {
       if (len < GET_PATH_MAX)
         {
@@ -2286,7 +2342,7 @@ func_abspath (char *o, char **argv, const char *funcname UNUSED)
   int doneany = 0;
   unsigned int len = 0;
 
-  while ((path = find_next_token (&p, &len)) != 0)
+  while ((path = find_next_token_path (&p, &len)) != 0)
     {
       if (len < GET_PATH_MAX)
         {
@@ -2338,6 +2394,7 @@ static struct function_table_entry function_table_init[] =
   FT_ENTRY ("basename",      0,  1,  1,  func_basename_dir),
   FT_ENTRY ("dir",           0,  1,  1,  func_basename_dir),
   FT_ENTRY ("notdir",        0,  1,  1,  func_notdir_suffix),
+  FT_ENTRY ("quote",         0,  1,  1,  func_quote),
   FT_ENTRY ("subst",         3,  3,  1,  func_subst),
   FT_ENTRY ("suffix",        0,  1,  1,  func_notdir_suffix),
   FT_ENTRY ("filter",        2,  2,  1,  func_filter_filterout),
@@ -2345,7 +2402,7 @@ static struct function_table_entry function_table_init[] =
   FT_ENTRY ("findstring",    2,  2,  1,  func_findstring),
   FT_ENTRY ("firstword",     0,  1,  1,  func_firstword),
   FT_ENTRY ("flavor",        0,  1,  1,  func_flavor),
-  FT_ENTRY ("join",          2,  2,  1,  func_join),
+  FT_ENTRY ("join",          2,  3,  1,  func_join),
   FT_ENTRY ("lastword",      0,  1,  1,  func_lastword),
   FT_ENTRY ("patsubst",      3,  3,  1,  func_patsubst),
   FT_ENTRY ("realpath",      0,  1,  1,  func_realpath),
@@ -2489,7 +2546,7 @@ handle_function (char **op, const char **stringp)
           ++nargs;
 
           if (nargs == entry_p->maximum_args
-              || (! (next = find_next_argument (openparen, closeparen, p, end))))
+              || ((next = find_next_argument (openparen, closeparen, p, end)) == NULL))
             next = end;
 
           *argvp = expand_argument (p, next);
@@ -2513,7 +2570,7 @@ handle_function (char **op, const char **stringp)
           ++nargs;
 
           if (nargs == entry_p->maximum_args
-              || (! (next = find_next_argument (openparen, closeparen, p, aend))))
+              || ((next = find_next_argument (openparen, closeparen, p, aend)) == NULL))
             next = aend;
 
           *argvp = p;

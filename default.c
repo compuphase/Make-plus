@@ -24,9 +24,12 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "dep.h"
 #include "job.h"
 #include "commands.h"
+#include "debug.h"
 
 #if defined(WINDOWS32)
 # include <windows.h>
+# include <shlobj.h>
+# include <io.h>
 #endif
 
 
@@ -81,40 +84,71 @@ static char *collect_commandlines (struct textline *base)
 
 /* Read the make "config" file, with the "built-in" variables, pattern rules
    and suffix rules. */
-void
+const char *
 read_config (char *argv0)
 {
-  PATH_VAR(cfgfile);
+  static PATH_VAR(cfgfile);
   char *ptr, *line;
   FILE *fcfg;
   struct textline *item, *tail;
 
+  /* First try current directory. */
+  getcwd(cfgfile, sizeof cfgfile);
+  #if defined(__MSDOS__)
+    strcat (cfgfile, "\\make.cfg");
+  #else
+    strcat (cfgfile, "\\make.conf");
+  #endif
+
+  /* Then try the current user's home directory (or the application data folder
+     under Windows). */
+  if (access (cfgfile, 0) != 0)
+    {
 #if defined(__MSDOS__)
-  strcpy(cfgfile, argv0);
-  ptr = strrchr(cfgfile, '\\');
-  if (ptr == NULL)
-    return;
-  strcpy(ptr + 1, "make.cfg");
+      /* There is no user directory under DOS. */
 #elif defined(WINDOWS32)
-  GetModuleFileName(NULL, cfgfile, GET_PATH_MAX);
-  ptr = strrchr(cfgfile, '\\');
-  if (ptr == NULL)
-    return;
-  strcpy(ptr + 1, "make.conf");
+      if (SHGetFolderPathA (NULL, CSIDL_APPDATA, NULL, 0, cfgfile) == S_OK)
+        strcat (cfgfile, "\\make.conf");
 #else
-  strcpy(cfgfile, "/etc/make.conf");
+      if ((ptr = getenv ("HOME")) != NULL)
+        {
+          strcpy (cfgfile, ptr);
+          strcat (cfgfile, "/make.conf");
+        }
 #endif
+    }
+
+  /* Finally try /etc (or the executable's directory under Windows) */
+  if (access (cfgfile, 0) != 0)
+    {
+#if defined(__MSDOS__)
+      strcpy (cfgfile, argv0);
+      ptr = strrchr (cfgfile, '\\');
+      if (ptr != NULL)
+        strcpy (ptr + 1, "make.cfg");
+#elif defined(WINDOWS32)
+      GetModuleFileName (NULL, cfgfile, GET_PATH_MAX);
+      ptr = strrchr (cfgfile, '\\');
+      if (ptr != NULL)
+        strcpy (ptr + 1, "make.conf");
+#else
+      strcpy (cfgfile, "/etc/make.conf");
+#endif
+    }
+
+  if (access (cfgfile, 0) != 0)
+    return NULL;
 
   fcfg = fopen(cfgfile, "r");
   if (!fcfg)
-    return;
+    return NULL;
 
   #define LINELENGTH  2048
   line = xmalloc(LINELENGTH * sizeof(char));
   if (!line)
     {
       fclose(fcfg);
-      return;
+      return NULL;
     }
   tail = &textroot;
   while (fgets(line, LINELENGTH, fcfg))
@@ -169,6 +203,7 @@ read_config (char *argv0)
   free(line);
 
   #undef LINELENGTH
+  return cfgfile;
 }
 
 /* Free all strings read from the configuration file. */

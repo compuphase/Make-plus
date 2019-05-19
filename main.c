@@ -1083,6 +1083,7 @@ main (int argc, char **argv, char **envp)
   unsigned int restarts = 0;
   unsigned int syncing = 0;
   int argv_slots;
+  const char *config_file_path;
 #ifdef WINDOWS32
   const char *unix_path = NULL;
   const char *windows32_path = NULL;
@@ -1488,7 +1489,7 @@ main (int argc, char **argv, char **envp)
      this option before parsing the configuration file).
      The way it is solved here is to scan the configuration file only for
      GNUMAKEFLAGS and handle it separately. */
-  read_config (argv[0]);  /* Read configuration file (argv[0] is only used in DOS compile). */
+  config_file_path = read_config (argv[0]);  /* Read configuration file (argv[0] is only used in DOS compile). */
   {
     char *opts = get_default_variable ("GNUMAKEFLAGS");
     if (opts && strlen (opts) > 0)
@@ -1575,7 +1576,18 @@ main (int argc, char **argv, char **envp)
     }
 
   if (ISDB (DB_BASIC))
-    print_version ();
+    {
+      const char *precede = print_data_base_flag ? "# " : "";
+
+      print_version ();
+
+      if (config_file_path == NULL || strlen (config_file_path) == 0)
+        printf("%s\n%sUsing without configuration file\n", precede, precede);
+      else
+        printf("%s\n%sUsing configuration file: %s\n", precede, precede,
+               config_file_path);
+    }
+
 
 #ifndef VMS
   /* Set the "MAKE_COMMAND" variable to the name we were invoked with.

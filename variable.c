@@ -977,31 +977,13 @@ define_automatic_variables (void)
   /* Define the magic D and F variables in terms of
      the automatic variables they are variations of.  */
 
-#if defined(__MSDOS__) || defined(WINDOWS32)
-  /* For consistency, remove the trailing backslash as well as slash.  */
-  define_variable_cname ("@D", "$(patsubst %/,%,$(patsubst %\\,%,$(dir $@)))",
-                         o_automatic, 1);
-  define_variable_cname ("%D", "$(patsubst %/,%,$(patsubst %\\,%,$(dir $%)))",
-                         o_automatic, 1);
-  define_variable_cname ("*D", "$(patsubst %/,%,$(patsubst %\\,%,$(dir $*)))",
-                         o_automatic, 1);
-  define_variable_cname ("<D", "$(patsubst %/,%,$(patsubst %\\,%,$(dir $<)))",
-                         o_automatic, 1);
-  define_variable_cname ("?D", "$(patsubst %/,%,$(patsubst %\\,%,$(dir $?)))",
-                         o_automatic, 1);
-  define_variable_cname ("^D", "$(patsubst %/,%,$(patsubst %\\,%,$(dir $^)))",
-                         o_automatic, 1);
-  define_variable_cname ("+D", "$(patsubst %/,%,$(patsubst %\\,%,$(dir $+)))",
-                         o_automatic, 1);
-#else  /* not __MSDOS__, not WINDOWS32 */
-  define_variable_cname ("@D", "$(patsubst %/,%,$(dir $@))", o_automatic, 1);
-  define_variable_cname ("%D", "$(patsubst %/,%,$(dir $%))", o_automatic, 1);
-  define_variable_cname ("*D", "$(patsubst %/,%,$(dir $*))", o_automatic, 1);
-  define_variable_cname ("<D", "$(patsubst %/,%,$(dir $<))", o_automatic, 1);
-  define_variable_cname ("?D", "$(patsubst %/,%,$(dir $?))", o_automatic, 1);
-  define_variable_cname ("^D", "$(patsubst %/,%,$(dir $^))", o_automatic, 1);
-  define_variable_cname ("+D", "$(patsubst %/,%,$(dir $+))", o_automatic, 1);
-#endif
+  define_variable_cname ("@D", "$(dir $@)", o_automatic, 1);
+  define_variable_cname ("%D", "$(dir $%)", o_automatic, 1);
+  define_variable_cname ("*D", "$(dir $*)", o_automatic, 1);
+  define_variable_cname ("<D", "$(dir $<)", o_automatic, 1);
+  define_variable_cname ("?D", "$(dir $?)", o_automatic, 1);
+  define_variable_cname ("^D", "$(dir $^)", o_automatic, 1);
+  define_variable_cname ("+D", "$(dir $+)", o_automatic, 1);
   define_variable_cname ("@F", "$(notdir $@)", o_automatic, 1);
   define_variable_cname ("%F", "$(notdir $%)", o_automatic, 1);
   define_variable_cname ("*F", "$(notdir $*)", o_automatic, 1);
@@ -1009,6 +991,32 @@ define_automatic_variables (void)
   define_variable_cname ("?F", "$(notdir $?)", o_automatic, 1);
   define_variable_cname ("^F", "$(notdir $^)", o_automatic, 1);
   define_variable_cname ("+F", "$(notdir $+)", o_automatic, 1);
+  define_variable_cname ("@Q", "$(quote $@)", o_automatic, 1);
+  define_variable_cname ("%Q", "$(quote $%)", o_automatic, 1);
+  define_variable_cname ("*Q", "$(quote $*)", o_automatic, 1);
+  define_variable_cname ("<Q", "$(quote $<)", o_automatic, 1);
+  define_variable_cname ("?Q", "$(quote $?)", o_automatic, 1);
+  define_variable_cname ("^Q", "$(quote $^)", o_automatic, 1);
+  define_variable_cname ("+Q", "$(quote $+)", o_automatic, 1);
+
+  define_variable_cname (".TARGET,D",     "$(dir $@)", o_automatic, 1);
+  define_variable_cname (".STEM,D",       "$(dir $*)", o_automatic, 1);
+  define_variable_cname (".SOURCE,D",     "$(dir $<)", o_automatic, 1);
+  define_variable_cname (".NEWSOURCES,D", "$(dir $?)", o_automatic, 1);
+  define_variable_cname (".SOURCES,D",    "$(dir $^)", o_automatic, 1);
+  define_variable_cname (".SOURCES+,D",   "$(dir $+)", o_automatic, 1);
+  define_variable_cname (".TARGET,F",     "$(notdir $@)", o_automatic, 1);
+  define_variable_cname (".STEM,F",       "$(notdir $*)", o_automatic, 1);
+  define_variable_cname (".SOURCE,F",     "$(notdir $<)", o_automatic, 1);
+  define_variable_cname (".NEWSOURCES,F", "$(notdir $?)", o_automatic, 1);
+  define_variable_cname (".SOURCES,F",    "$(notdir $^)", o_automatic, 1);
+  define_variable_cname (".SOURCES+,F",   "$(notdir $+)", o_automatic, 1);
+  define_variable_cname (".TARGET,Q",     "$(quote $@)", o_automatic, 1);
+  define_variable_cname (".STEM,Q",       "$(quote $*)", o_automatic, 1);
+  define_variable_cname (".SOURCE,Q",     "$(quote $<)", o_automatic, 1);
+  define_variable_cname (".NEWSOURCES,Q", "$(quote $?)", o_automatic, 1);
+  define_variable_cname (".SOURCES,Q",    "$(quote $^)", o_automatic, 1);
+  define_variable_cname (".SOURCES+,Q",   "$(quote $+)", o_automatic, 1);
 }
 
 int export_all_variables;

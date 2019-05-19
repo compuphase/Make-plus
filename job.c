@@ -31,7 +31,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #ifdef WINDOWS32
 #include <windows.h>
 
-const char *default_shell = "sh.exe";
+const char *default_shell = "cmd.exe";
 int no_default_sh_exe = 1;
 int batch_mode_shell = 1;
 
@@ -546,7 +546,7 @@ child_handler (int sig UNUSED)
 
 #ifdef WINDOWS32
 
-/* If non-zero, then Main thread should release resources and go to sleep.  */ 
+/* If non-zero, then Main thread should release resources and go to sleep.  */
 int main_thread_should_sleep = 0;
 
 /* Event object on which Ctrl-C handler thread will wait

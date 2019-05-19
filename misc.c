@@ -21,6 +21,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 /* GNU make no longer supports pre-ANSI89 environments.  */
 
+#include <assert.h>
 #include <stdarg.h>
 
 #ifdef HAVE_FCNTL_H
@@ -345,18 +346,49 @@ next_token (const char *s)
 char *
 find_next_token (const char **ptr, unsigned int *lengthptr)
 {
-  const char *p = next_token (*ptr);
+  char *p;
 
+  assert(p != NULL);
+  p = next_token (*ptr);
   if (*p == '\0')
-    return 0;
+    return NULL;
 
   *ptr = end_of_token (p);
-  if (lengthptr != 0)
+  if (lengthptr != NULL)
     *lengthptr = *ptr - p;
 
-  return (char *)p;
+  return p;
 }
-
+
+/* Like find_next_token(), find the next token in PTR and return the address
+   and its length. In contrast to find_next_token(), this function handles
+   escaped space characters. */
+
+char *
+find_next_token_path (const char **ptr, unsigned int *lengthptr)
+{
+  char *p;
+  unsigned int len;
+
+  assert(ptr != NULL);
+  p = find_next_token (ptr, &len);
+
+  if (p == NULL)
+    return NULL;
+
+  while (len > 0 && p[len - 1] == '\\' && p[len] == ' ')
+    {
+      /* An escaped space */
+      unsigned int len2;
+      if (find_next_token (ptr, &len2) == NULL)
+        break;
+      len += len2 + 1;
+    }
+
+  if (lengthptr != NULL)
+    *lengthptr = len;
+  return p;
+}
 
 /* Copy a chain of 'struct dep'.  For 2nd expansion deps, dup the name.  */
 

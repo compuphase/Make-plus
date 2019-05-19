@@ -511,6 +511,7 @@ void *xrealloc (void *, unsigned int);
 char *xstrdup (const char *);
 char *xstrndup (const char *, unsigned int);
 char *find_next_token (const char **, unsigned int *);
+char *find_next_token_path (const char **, unsigned int *);
 char *next_token (const char *);
 char *end_of_token (const char *);
 void collapse_continuations (char *);
@@ -548,7 +549,7 @@ void print_dir_data_base (void);
 void dir_setup_glob (glob_t *);
 void hash_init_directories (void);
 
-void read_config (char *argv0);
+const char *read_config (char *argv0);
 void clear_config (void);
 char *get_default_variable (const char *name);
 void define_default_variables (void);
