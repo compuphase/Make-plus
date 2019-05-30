@@ -93,12 +93,14 @@ read_config (char *argv0)
   struct textline *item, *tail;
 
   /* First try current directory. */
-  getcwd(cfgfile, sizeof cfgfile);
-  #if defined(__MSDOS__)
-    strcat (cfgfile, "\\make.cfg");
-  #else
-    strcat (cfgfile, "\\make.conf");
-  #endif
+  cfgfile[0] = '\0';
+  if (getcwd (cfgfile, sizeof cfgfile) != NULL) {
+    #if defined(__MSDOS__)
+      strcat (cfgfile, "\\make.cfg");
+    #else
+      strcat (cfgfile, "\\make.conf");
+    #endif
+  }
 
   /* Then try the current user's home directory (or the application data folder
      under Windows). */

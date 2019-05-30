@@ -93,7 +93,7 @@ copy_escaped_name (char *dest, const char *name, int terminate)
 #define dup_escaped_name(target, name) \
   do { \
     target = alloca (escaped_name_length (name) + 1); \
-    copy_escaped_name ((target), (name), 1); \
+    copy_escaped_name ((char*)(target), (name), 1); \
   } while (0);
 
 /* Set FILE's automatic variables up.  */
