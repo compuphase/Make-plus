@@ -41,12 +41,6 @@ char *alloca ();
 # endif
 #endif
 
-/* Disable assert() unless we're a maintainer.
-   Some asserts are compute-intensive.  */
-#ifndef MAKE_MAINTAINER_MODE
-# define NDEBUG 1
-#endif
-
 /* Include the externally-visible content.
    Be sure to use the local one, and not one installed on the system.
    Define GMK_BUILDING_MAKE for proper selection of dllexport/dllimport

@@ -284,7 +284,7 @@ construct_vpath_list (char *pattern, char *dirpath, int exclusive)
          entry, to where the nil-pointer terminator goes.
          Usually this is maxelem - 1.  If not, shrink down.  */
       if (elem < (maxelem - 1))
-        vpath = xrealloc (vpath, (elem+1) * sizeof (const char *));
+        vpath = (const char**)xrealloc (vpath, (elem+1) * sizeof (const char *));
 
       /* Put the nil-pointer terminator on the end of the VPATH list.  */
       vpath[elem] = NULL;
@@ -561,7 +561,7 @@ selective_vpath_search (struct vpath *path, const char *file,
   if (tgt_name != NULL)
     {
       assert(tgt_len > 0);  /* the path must be non-empty */
-      assert(isexclusive); /* the vpath is for targets */
+      assert(isexclusive);  /* the vpath is for targets */
       assert(!not_target);  /* this must not be a target */
 
       if (mtime_ptr != NULL)

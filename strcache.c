@@ -93,7 +93,7 @@ add_string (const char *str, unsigned int len)
   struct strcache *sp;
   struct strcache **spp = &strcache;
   /* We need space for the nul char.  */
-  unsigned int sz = len + 1;
+  sc_buflen_t sz = len + 1;
 
   ++total_strings;
   total_size += sz;

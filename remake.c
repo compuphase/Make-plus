@@ -1272,7 +1272,7 @@ FILE_TIMESTAMP
 f_mtime (struct file *file, int search)
 {
   FILE_TIMESTAMP mtime;
-  int propagate_timestamp;
+  unsigned propagate_timestamp;
 
   /* File's mtime is not known; must get it from the system.  */
 
@@ -1344,7 +1344,14 @@ f_mtime (struct file *file, int search)
         {
           /* If name_mtime failed, search VPATH.  */
           int target_path;
-          const char *name = vpath_search (file->name, &mtime, &target_path, NULL, NULL);
+          const char *name;
+          if (file->is_renamed)
+            {
+              name = file->vpath;
+              target_path = 1;
+            }
+          else
+            name = vpath_search (file->name, &mtime, &target_path, NULL, NULL);
           if (name
               /* Last resort, is it a library (-lxxx)?  */
               || (file->name[0] == '-' && file->name[1] == 'l'
@@ -1358,8 +1365,8 @@ f_mtime (struct file *file, int search)
                 file->last_mtime = mtime;
 
               /* If we found it in VPATH, see whether it is set as a target
-                 path; if so, rename it. Otherwise, if the path is in GPATH 
-                 too, also change the name right now; if not, defer until after 
+                 path; if so, rename it. Otherwise, if the path is in GPATH
+                 too, also change the name right now; if not, defer until after
                  the dependencies are updated. */
 #ifndef VMS
               name_len = strlen (name) - strlen (file->name) - 1;
@@ -1368,10 +1375,9 @@ f_mtime (struct file *file, int search)
               if (name[name_len - 1] == '/')
                   name_len--;
 #endif
-              if (target_path) {
+              if (target_path && !file->is_renamed) {
                   assert(file->vpath == NULL && file->name != NULL);
                   file->vpath = xstrdup(file->name);    /* save the original name */
-                  assert(file->is_renamed == 0);
                   file->is_renamed = 1;
               }
               if (target_path || gpath_search (name, name_len))

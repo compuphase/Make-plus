@@ -34,10 +34,7 @@ USA.  */
 #include <sys/types.h>
 #include <sys/stat.h>
 
-/* Outcomment the following line for production quality code.  */
-/* #define NDEBUG 1 */
 #include <assert.h>
-
 #include <stdio.h>		/* Needed on stupid SunOS for assert.  */
 
 
