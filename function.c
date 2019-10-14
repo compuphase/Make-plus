@@ -14,6 +14,7 @@ A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
+#include <assert.h>
 #include "makeint.h"
 #include "filedef.h"
 #include "variable.h"
@@ -292,13 +293,15 @@ pattern_matches (const char *pattern, const char *percent, const char *str)
 {
   unsigned int sfxlen, strlength;
 
-  if (percent == 0)
+  assert(pattern != NULL);
+  assert(str != NULL);
+  if (!percent)
     {
       unsigned int len = strlen (pattern) + 1;
       char *new_chars = alloca (len);
       memcpy (new_chars, pattern, len);
       percent = find_percent (new_chars);
-      if (percent == 0)
+      if (!percent)
         return streq (new_chars, str);
       pattern = new_chars;
     }
@@ -310,7 +313,7 @@ pattern_matches (const char *pattern, const char *percent, const char *str)
       || !strneq (pattern, str, percent - pattern))
     return 0;
 
-  return !strcmp (percent + 1, str + (strlength - sfxlen));
+  return streq (percent + 1, str + (strlength - sfxlen));
 }
 
 
@@ -906,8 +909,29 @@ static char *
 func_findstring (char *o, char **argv, const char *funcname UNUSED)
 {
   /* Find the first occurrence of the first string in the second.  */
-  if (strstr (argv[1], argv[0]) != 0)
+  assert(o != NULL);
+  assert(argv != NULL && argv[0] != NULL && argv[1] != NULL);
+  if (strstr (argv[1], argv[0]) != NULL)
     o = variable_buffer_output (o, argv[0], strlen (argv[0]));
+
+  return o;
+}
+
+static char *
+func_findword (char *o, char **argv, const char *funcname UNUSED)
+{
+  /* Find the first occurrence of the first string in the second. Then check
+     whether a space precedes and follows that occurence */
+  assert(o != NULL);
+  assert(argv != NULL && argv[0] != NULL && argv[1] != NULL);
+  const char *p = strstr (argv[1], argv[0]);
+  if (p != NULL)
+    {
+      size_t len = strlen(argv[0]);
+      assert(len > 0);
+      if ((p == argv[1] || *(p - 1) == ' ') && (*(p + len) == ' ' || *(p + len) == '\0'))
+        o = variable_buffer_output (o, argv[0], strlen (argv[0]));
+    }
 
   return o;
 }
@@ -2400,6 +2424,7 @@ static struct function_table_entry function_table_init[] =
   FT_ENTRY ("filter",        2,  2,  1,  func_filter_filterout),
   FT_ENTRY ("filter-out",    2,  2,  1,  func_filter_filterout),
   FT_ENTRY ("findstring",    2,  2,  1,  func_findstring),
+  FT_ENTRY ("findword",      2,  2,  1,  func_findword),
   FT_ENTRY ("firstword",     0,  1,  1,  func_firstword),
   FT_ENTRY ("flavor",        0,  1,  1,  func_flavor),
   FT_ENTRY ("join",          2,  3,  1,  func_join),

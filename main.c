@@ -1339,6 +1339,7 @@ main (int argc, char **argv, char **envp)
   {
     const char *features = "target-specific order-only second-expansion"
                            " else-if shortest-stem undefine oneshell"
+                           " runtime-macros .path"
 #ifndef NO_ARCHIVES
                            " archives"
 #endif

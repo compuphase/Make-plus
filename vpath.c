@@ -325,7 +325,32 @@ gpath_search (const char *file, unsigned int len)
   return 0;
 }
 
+/* Match a file against the pattern in a vpath. */
 
+static int vpath_match(const struct vpath *vpath, const char *filename)
+{
+  int length;
+
+  assert(vpath != NULL && vpath->pattern != NULL);
+  if (pattern_matches (vpath->pattern, vpath->percent, filename))
+    return 1;
+
+  /* If the pattern ends with a '.' and the file has no extension (it does
+     not have a '.'), also match without the dot in the pattern. */
+  length = strlen (vpath->pattern);
+  assert(length > 0);
+  if (vpath->pattern[length - 1] == '.' && strchr (filename, '.') == NULL)
+    {
+      char *p = alloca((length + 1) * sizeof(char));
+      strcpy(p, vpath->pattern);
+      p[length - 1] = '\0'; /* erase trailing '.' */
+      if (pattern_matches (p, vpath->percent, filename))
+        return 1;
+    }
+
+  return 0;
+}
+
 /* Search the given VPATH list for a directory where the name pointed to by
    FILE exists.  If it is found, we return a cached name of the existing file
    and set *MTIME_PTR (if MTIME_PTR is not NULL) to its modtime (or zero if no
@@ -594,24 +619,25 @@ vpath_search (const char *file, FILE_TIMESTAMP *mtime_ptr, int *target_path,
 #ifdef HAVE_DOS_PATHS
       || file[0] == '\\' || file[1] == ':'
 #endif
-      || (vpaths == 0 && general_vpath == 0))
+      || (vpaths == NULL && general_vpath == NULL))
     return 0;
 
-  if (target_path)
+  if (target_path != NULL)
     *target_path = 0;
-  if (vpath_index)
+  if (vpath_index != NULL)
     {
-      assert(path_index);
+      assert(path_index != NULL);
       *vpath_index = 0;
       *path_index = 0;
     }
 
   for (v = vpaths; v != 0; v = v->next)
     {
-      if (pattern_matches (v->pattern, v->percent, file))
+      /* if the pattern ends with a '.' and the file has no extension (it does
+         not have a '.'), also match without the dot in the pattern */
+      if (vpath_match (v, file))
         {
-          const char *p = selective_vpath_search (
-            v, file, mtime_ptr, path_index);
+          const char *p = selective_vpath_search (v, file, mtime_ptr, path_index);
           if (p)
             {
               if (target_path)
@@ -625,7 +651,7 @@ vpath_search (const char *file, FILE_TIMESTAMP *mtime_ptr, int *target_path,
     }
 
 
-  if (general_vpath != 0)
+  if (general_vpath != NULL)
     {
       const char *p = selective_vpath_search (
         general_vpath, file, mtime_ptr, path_index);

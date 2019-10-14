@@ -313,7 +313,8 @@ char *strsignal (int signum);
 # define patheq(a, b) streq(a, b)
 #endif
 
-#define strneq(a, b, l) (strncmp ((a), (b), (l)) == 0)
+/* Test equality of two strings up to a certain lenght. */
+#define strneq(a, b, l) ((l) == 0 || strncmp ((a), (b), (l)) == 0)
 
 #if defined(__GNUC__) || defined(ENUM_BITFIELDS)
 # define ENUM_BITFIELD(bits)    :bits
