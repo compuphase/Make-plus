@@ -344,7 +344,7 @@ static int vpath_match(const struct vpath *vpath, const char *filename)
       char *p = alloca((length + 1) * sizeof(char));
       strcpy(p, vpath->pattern);
       p[length - 1] = '\0'; /* erase trailing '.' */
-      if (pattern_matches (p, vpath->percent, filename))
+      if (pattern_matches (p, find_percent(p), filename))
         return 1;
     }
 
@@ -372,7 +372,7 @@ selective_vpath_search (struct vpath *path, const char *file,
   unsigned int flen, name_dplen;
   int exists = 0;
   char *tgt_name = NULL;
-  int tgt_len = 0;
+  size_t tgt_len = 0;
 
   /* Find out if *FILE is a target.
      If and only if it is NOT a target, we will accept prospective

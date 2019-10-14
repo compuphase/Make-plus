@@ -1355,7 +1355,7 @@ f_mtime (struct file *file, int search)
           if (name
               /* Last resort, is it a library (-lxxx)?  */
               || (file->name[0] == '-' && file->name[1] == 'l'
-                  && (name = library_search (file->name, &mtime)) != 0))
+                  && (name = library_search (file->name, &mtime)) != NULL))
             {
               int name_len;
 
@@ -1368,6 +1368,7 @@ f_mtime (struct file *file, int search)
                  path; if so, rename it. Otherwise, if the path is in GPATH
                  too, also change the name right now; if not, defer until after
                  the dependencies are updated. */
+              assert(name != NULL);
 #ifndef VMS
               name_len = strlen (name) - strlen (file->name) - 1;
 #else
@@ -1376,8 +1377,8 @@ f_mtime (struct file *file, int search)
                   name_len--;
 #endif
               if (target_path && !file->is_renamed) {
-                  assert(file->vpath == NULL && file->name != NULL);
-                  file->vpath = xstrdup(file->name);    /* save the original name */
+                  assert(file->vpath == NULL && name != NULL);
+                  file->vpath = xstrdup(name);    /* save the determined target path */
                   file->is_renamed = 1;
               }
               if (target_path || gpath_search (name, name_len))

@@ -348,7 +348,7 @@ find_next_token (const char **ptr, unsigned int *lengthptr)
 {
   char *p;
 
-  assert(p != NULL);
+  assert(ptr != NULL);
   p = next_token (*ptr);
   if (*p == '\0')
     return NULL;

@@ -295,16 +295,8 @@ pattern_matches (const char *pattern, const char *percent, const char *str)
 
   assert(pattern != NULL);
   assert(str != NULL);
-  if (!percent)
-    {
-      unsigned int len = strlen (pattern) + 1;
-      char *new_chars = alloca (len);
-      memcpy (new_chars, pattern, len);
-      percent = find_percent (new_chars);
-      if (!percent)
-        return streq (new_chars, str);
-      pattern = new_chars;
-    }
+  if (percent == NULL)
+    return streq (pattern, str);
 
   sfxlen = strlen (percent + 1);
   strlength = strlen (str);
