@@ -1064,7 +1064,7 @@ verify_file (const void *item)
 
   VERIFY_CACHED (f, name);
   VERIFY_CACHED (f, hname);
-  VERIFY_CACHED (f, vpath);
+  VERIFY_CACHED (f, vpath_orgname);
   VERIFY_CACHED (f, stem);
 
   /* Check the deps.  */

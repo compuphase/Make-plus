@@ -25,7 +25,7 @@ struct file
   {
     const char *name;
     const char *hname;          /* Hashed filename */
-    const char *vpath;          /* VPATH/vpath pathname */
+    const char *vpath_orgname;  /* original target name, before VPATH/vpath lookup */
     struct dep *deps;           /* all dependencies, including duplicates */
     struct commands *cmds;      /* Commands to execute for this target.  */
     const char *stem;           /* Implicit stem, if an implicit

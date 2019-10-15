@@ -1347,7 +1347,7 @@ f_mtime (struct file *file, int search)
           const char *name;
           if (file->is_renamed)
             {
-              name = file->vpath;
+              name = file->name;
               target_path = 1;
             }
           else
@@ -1377,8 +1377,8 @@ f_mtime (struct file *file, int search)
                   name_len--;
 #endif
               if (target_path && !file->is_renamed) {
-                  assert(file->vpath == NULL && name != NULL);
-                  file->vpath = xstrdup(name);    /* save the determined target path */
+                  assert(file->vpath_orgname == NULL && file->name != NULL);
+                  file->vpath_orgname = xstrdup(file->name);    /* save the original target name (for pattern matching) */
                   file->is_renamed = 1;
               }
               if (target_path || gpath_search (name, name_len))
