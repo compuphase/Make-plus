@@ -994,9 +994,14 @@ eval (struct ebuffer *ebuf, int set_default)
 
       /* This line starts with white-space, but was not caught above because
          there was no preceding target, and the line might have been usable as
-         a variable definition.  But now we know it is definitely lossage.  */
-      if (is_recipe_prefix (line))
-        O (fatal, fstart, _("syntax error: presumed shell line, but missing a target"));
+         a variable definition.  But unless this is a special function call
+         like $(eval ...), now we know it is definitely lossage. */
+      if (is_recipe_prefix(line)) {
+        p = line;
+        NEXT_TOKEN(p);
+        if (conditionals->if_cmds == 0 || *p != '$')
+          O (fatal, fstart, _("syntax error: presumed shell line, but missing a target"));
+      }
 
       /* This line describes some target files.  This is complicated by
          the existence of target-specific variables, because we can't

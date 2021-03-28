@@ -308,7 +308,7 @@ ar_glob (const char *arname, const char *member_pattern, unsigned int size)
     return 0;
 
   /* Now put the names into a vector for sorting.  */
-  names = alloca (state.n * sizeof (const char *));
+  names = (const char**)alloca (state.n * sizeof (const char *));
   i = 0;
   for (n = state.chain; n != 0; n = n->next)
     names[i++] = n->name;
