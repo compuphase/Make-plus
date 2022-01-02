@@ -404,6 +404,7 @@ chop_commands (struct commands *cmds)
       nlines = 5;
       lines = xmalloc (nlines * sizeof (char *));
       idx = 0;
+	  assert (cmds->commands != NULL);
       p = cmds->commands;
       while (*p != '\0')
         {

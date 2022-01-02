@@ -41,6 +41,10 @@ char *alloca ();
 # endif
 #endif
 
+#if !defined (WINDOWS32) && (defined (WIN32) || defined (_WIN32))
+# define WINDOWS32
+#endif
+
 /* Include the externally-visible content.
    Be sure to use the local one, and not one installed on the system.
    Define GMK_BUILDING_MAKE for proper selection of dllexport/dllimport

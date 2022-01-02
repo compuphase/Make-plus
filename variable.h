@@ -54,16 +54,13 @@ struct variable
     floc fileinfo;              /* Where the variable was defined.  */
     int length;                 /* strlen (name) */
     unsigned int recursive:1;   /* Gets recursively re-evaluated.  */
-    unsigned int append:1;      /* Nonzero if an appending target-specific
-                                   variable.  */
+    unsigned int append:1;      /* Nonzero if an appending target-specific variable.  */
     unsigned int conditional:1; /* Nonzero if set with a ?=. */
     unsigned int per_target:1;  /* Nonzero if a target-specific variable.  */
-    unsigned int special:1;     /* Nonzero if this is a special variable.  */
-    unsigned int exportable:1;  /* Nonzero if the variable _could_ be
-                                   exported.  */
+    unsigned int special:1;     /* Nonzero if this is a special variable (dynamically updated).  */
+    unsigned int exportable:1;  /* Nonzero if the variable _could_ be exported.  */
     unsigned int expanding:1;   /* Nonzero if currently being expanded.  */
-    unsigned int private_var:1; /* Nonzero avoids inheritance of this
-                                   target-specific variable.  */
+    unsigned int private_var:1; /* Nonzero avoids inheritance of this target-specific variable.  */
     unsigned int exp_count:EXP_COUNT_BITS;
                                 /* If >1, allow this many self-referential
                                    expansions.  */

@@ -72,6 +72,9 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
+#if !defined (WINDOWS32) && (defined (WIN32) || defined (_WIN32))
+# define WINDOWS32
+#endif
 
 #include <sys/types.h>
 

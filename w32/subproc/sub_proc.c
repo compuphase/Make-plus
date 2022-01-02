@@ -713,8 +713,10 @@ process_begin(
 
                         pproc->last_err = GetLastError();
                         pproc->lerrno = E_FORK;
-                        fprintf(stderr, "process_begin: CreateProcess(%s, %s, ...) failed.\n",
-                                exec_path ? exec_path : "NULL", command_line);
+                        if (exec_path)
+                          fprintf(stderr, "Failed to running: %s/%s\n", exec_path, command_line);
+                        else
+                          fprintf(stderr, "Failed to run: %s\n", command_line);
                         free(envblk);
                         free( command_line );
                         return(-1);

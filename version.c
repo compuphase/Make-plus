@@ -20,7 +20,19 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include <config.h>
 
 #ifndef MAKE_HOST
-# define MAKE_HOST "unknown"
+# if defined (WINDOWS32) || defined (WIN32) || defined (_WIN32)
+#   define MAKE_HOST "Windows"
+# elif defined (__linux__) || defined (__linux)
+#   define MAKE_HOST "Linux"  /* Linux & derivatives, including Android */
+# elif defined (__APPLE__)
+#   define MAKE_HOST "Darwin" /* OSX, MacOS, iOS */
+# elif defined (__unix__) || defined (__unix)
+#   define MAKE_HOST "Unix"
+# elif defined (__MSDOS__)
+#   define MAKE_HOST "MSDOS"
+# else
+#   define MAKE_HOST "unknown"
+# endif
 #endif
 
 const char *version_string = VERSION;

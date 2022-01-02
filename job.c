@@ -615,6 +615,49 @@ void wait_until_main_thread_sleeps (void)
 
 #endif /* WINDOWS32 */
 
+static int internal_command (char **argv, unsigned long *exitcode)
+{
+  assert (argv && argv[0]);
+  assert (exitcode);
+  if (strcasecmp (argv[0], ".chdir") == 0)
+    {
+      if (argv[1])
+        {
+          extern char *directory_before_chdir;  /* original directory when Make started up */
+          static char *last_directory;          /* directory most recently switched from */
+
+          PATH_VAR (current_directory);
+          char *cwd_result, *p;
+          int e;
+
+#ifdef WINDOWS32
+          cwd_result = getcwd_fs (current_directory, GET_PATH_MAX);
+#else
+          cwd_result = getcwd (current_directory, GET_PATH_MAX);
+#endif
+
+          p = (strcmp (argv[1], "-") == 0) ? last_directory : argv[1];
+          e = p ? chdir (p) : -1; /* chdir() returns 0 on success */
+          *exitcode = e ? 76 : 0; /* error code 76 is "path not found" */
+
+          /* update CURDIR variable */
+          if (!e)
+            define_variable_cname("CURDIR", p, o_file, 0);
+          /* save original directory, save directory switched away from */
+          if (cwd_result)
+            {
+              if (!directory_before_chdir)
+                directory_before_chdir = xstrdup (current_directory);
+              if (last_directory)
+                free (last_directory);
+              last_directory = xstrdup (current_directory);
+            }
+        }
+      return 1;
+    }
+  return 0;
+}
+
 extern pid_t shell_function_pid;
 
 /* Reap all dead children, storing the returned status and the new command
@@ -652,7 +695,7 @@ reap_children (int block, int err)
     {
       unsigned int remote = 0;
       pid_t pid;
-      int exit_code, exit_sig, coredump;
+      int exit_code = 0, exit_sig = 0, coredump = 0;
       struct child *lastc, *c;
       int child_failed;
       int any_remote, any_local;
@@ -721,7 +764,9 @@ reap_children (int block, int err)
       else if (pid < 0)
         {
           /* A remote status command failed miserably.  Punt.  */
+#if !defined(__MSDOS__) && !defined(_AMIGA) && !defined(WINDOWS32)
         remote_status_lose:
+#endif
           pfatal_with_name ("remote_status");
         }
       else
@@ -1131,6 +1176,7 @@ static void
 start_job_command (struct child *child)
 {
   int flags;
+  unsigned long exitcode;
   char *p;
 #ifdef VMS
   char *argv;
@@ -1368,6 +1414,26 @@ start_job_command (struct child *child)
       free (argv[0]);
       free (argv);
 #endif
+      goto next_command;
+    }
+
+  if (argv[0][0] == '.' && internal_command (argv, &exitcode))
+    {
+      /* Free the storage used by the child's argument list.  */
+#ifndef VMS
+      free (argv[0]);
+      free (argv);
+#endif
+      if (exitcode != 0 && !child->noerror)
+        {
+          fprintf (stderr, "make (e=%lu): path not found\n", exitcode);
+          if (exitcode != 0 && !child->dontcare && !ignore_errors_flag)
+            {
+              child_error (child, exitcode, 0, 0, 0);
+              if (!keep_going_flag)
+                die (MAKE_FAILURE);
+            }
+        }
       goto next_command;
     }
 
@@ -2434,7 +2500,29 @@ void clean_tmp (void)
 }
 
 #endif /* On Amiga */
-
+#ifdef WINDOWS32
+int
+is_special_command(const char *cmd, const char *list[])
+{
+  int i;
+
+  assert (cmd != NULL);
+  assert (list != NULL);
+
+  while (ISBLANK(*cmd))
+    ++cmd;
+  if (*cmd == '\0')
+    return 0;
+
+  for (i = 0; list[i]; ++i)
+    {
+      unsigned len = strlen (list[i]);
+      if (len < strlen(cmd) && ISBLANK(cmd[len]) && strnicmp(list[i], cmd, len) == 0)
+        return 1;
+    }
+  return 0;
+}
+#endif
 #ifndef VMS
 /* Figure out the argument list necessary to run LINE as a command.  Try to
    avoid using a shell.  This routine handles only ' quoting, and " quoting
@@ -2542,7 +2630,7 @@ construct_command_argv_internal (char *line, char **restp, const char *shell,
      can handle quoted file names just fine, removing the quote lifts
      the limit from a very frequent use case, because using quoted
      file names is commonplace on MS-Windows.  */
-  static const char *sh_chars_dos = "|&<>";
+  static const char *sh_chars_dos = ";|&<>";
   static const char *sh_cmds_dos[] =
     { "assoc", "break", "call", "cd", "chcp", "chdir", "cls", "color", "copy",
       "ctty", "date", "del", "dir", "echo", "echo.", "endlocal", "erase",
@@ -2560,6 +2648,9 @@ construct_command_argv_internal (char *line, char **restp, const char *shell,
       "echo",
 #endif
       0 };
+
+  static const char *sh_cmds_paths[] =
+    { "cd", "chdir", "md", "mkdir", "rd", "rmdir", 0 };
 
   const char *sh_chars;
   const char **sh_cmds;
@@ -3094,27 +3185,68 @@ construct_command_argv_internal (char *line, char **restp, const char *shell,
                [@+-]: they're meaningless in .ONESHELL mode.  */
             while (*f != '\0')
               {
+                int found_eol = 0;
+                int inquotes = 0, escape = 0;
+                int convert_path;
+
                 /* This is the start of a new recipe line.  Skip whitespace
                    and prefix characters but not newlines.  */
                 while (ISBLANK (*f) || *f == '-' || *f == '@' || *f == '+')
                   ++f;
 
+                /* check whether this command needs the paths to be converted */
+                convert_path = is_special_command(f, sh_cmds_paths);
+
                 /* Copy until we get to the next logical recipe line.  */
                 while (*f != '\0')
                   {
+                    int prev_escape = escape;
+                    if (*f == '\\')
+                      escape = !escape;
+                    else if (*f == '"' && !escape)
+                      inquotes = !inquotes;
                     /* Remove the escaped newlines in the command, and the
                        blanks that follow them.  Windows shells cannot handle
                        escaped newlines.  */
-                    if (*f == '\\' && f[1] == '\n')
+                    if (escape && f[1] == '\n')
                       {
                         f += 2;
                         while (ISBLANK (*f))
                           ++f;
+                        escape = 0;
+                        convert_path = is_special_command(f, sh_cmds_paths);
                       }
-                    *(t++) = *(f++);
-                    /* On an unescaped newline, we're done with this
-                       line.  */
-                    if (f[-1] == '\n')
+                    /* Test character before copying it. Windows shell does
+                       not handle the ; as a command separator, so when this
+                       appears outside quotes and unescaped, the line is split
+                       at this point too. */
+                    if (*f == '\n' || (*f == ';' && !escape && !inquotes))
+                      {
+                        found_eol = 1;
+                        *(t++) = '\n';
+                        f++;
+                      }
+                    else if (escape && *f == '"')
+                      {
+                        *(t-1) = '"'; /* replace Make escape by Windows cmd.exe escape */
+                        *(t++) = *(f++);
+                        escape = 0;
+                      }
+                    else if (prev_escape && strchr ("\\\n;", *f) != NULL)
+                      {
+                        *(t-1) = *(f++); /* replace the escaped character by the literal one */
+                        escape = 0;
+                      }
+                    else
+                      {
+                        *(t++) = (*f == '/' && convert_path) ? '\\' : *f;
+                        ++f;
+                        if (*f == '\0' || strchr ("\\\"\n;", *f) == NULL)
+                          escape = 0; /* backslash NOT followed by \, ", \n or ; cancels escaping */
+                      }
+                    /* On an unescaped newline or an unescaped semicolon,
+                       we're done with this line.  */
+                    if (found_eol)
                       break;
                   }
                 /* Write another line into the batch file.  */
@@ -3256,6 +3388,8 @@ construct_command_argv_internal (char *line, char **restp, const char *shell,
       }
     else if ((no_default_sh_exe || batch_mode_shell) && batch_filename)
       {
+        int inquotes = 0, escape = 0, convert_path = 0;
+        char *buffer, *bp, *cp;
         int temp_fd;
         FILE* batch = NULL;
         int id = GetCurrentProcessId ();
@@ -3274,9 +3408,45 @@ construct_command_argv_internal (char *line, char **restp, const char *shell,
         batch = _fdopen (temp_fd, "wt");
         if (!unixy_shell)
           fputs ("@echo off\n", batch);
-        fputs (command_ptr, batch);
+
+        /* check whether this command needs the paths to be converted */
+        convert_path = is_special_command(command_ptr, sh_cmds_paths);
+
+        /* write command but split at ';' (unless escaped or inside quotes) */
+        buffer = xmalloc ((strlen(command_ptr) + 1) * sizeof(char));
+        bp = buffer;
+        for (cp = command_ptr; *cp != '\0'; ++cp)
+          {
+            int prev_escape = escape;
+            if (*cp == '\\')
+              escape = !escape;
+            else if (*cp == '"' && !escape)
+              inquotes = !inquotes;
+            if (*cp == ';' && !escape && !inquotes)
+              *(bp++) = '\n';
+            else if (escape && *cp == '"')
+              {
+                *(bp-1) = '"';  /* replace Make escape by Windows cmd.exe escape */
+                *(bp++) = *cp;
+                escape = 0;
+              }
+            else if (prev_escape && strchr ("\\\n;", *cp) != NULL)
+              {
+                *(bp-1) = *cp;  /* replace the escaped character by the literal one */
+                escape = 0;
+              }
+            else
+              {
+                *(bp++) = (*cp == '/' && convert_path) ? '\\' : *cp;
+                if (*(cp + 1) == '\0' || strchr ("\\\"\n;", *(cp + 1)) == NULL)
+                  escape = 0; /* backslash NOT followed by \, ", \n or ; cancels escaping */
+              }
+          }
+        *bp = '\0';
+        fputs (buffer, batch);
         fputc ('\n', batch);
         fclose (batch);
+        free (buffer);
         DB (DB_JOBS, (_("Batch file contents:%s\n\t%s\n"),
                       !unixy_shell ? "\n\t@echo off" : "", command_ptr));
 

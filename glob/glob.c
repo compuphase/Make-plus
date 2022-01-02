@@ -29,6 +29,9 @@ USA.  */
 #ifndef _GNU_SOURCE
 # define _GNU_SOURCE	1
 #endif
+#if !defined (WINDOWS32) && (defined (WIN32) || defined (_WIN32))
+# define WINDOWS32
+#endif
 
 #include <errno.h>
 #include <sys/types.h>
