@@ -35,8 +35,9 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 static const char *default_variables[] =
   {
-    "GNUMAKEFLAGS", "", /* Make this assignment to avoid undefined variable warnings.  */
-    ".space", " ",      /* For use in macros where you need to match on a space.  */
+    "GNUMAKEFLAGS", "",     /* Make this assignment to avoid undefined variable warnings.  */
+    ".RECIPEINDENT", "4",   /* Default indentation for recipe prefixes.  */
+    ".space", " ",          /* For use in macros where you need to match on a space.  */
     0, 0
   };
 

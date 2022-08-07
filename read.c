@@ -1407,17 +1407,28 @@ eval (struct ebuffer *ebuf, int set_default)
 }
 
 
-/* Check whether a line starts with either a tab, or with at least 4 spaces.
+/* Check whether a line starts with either a tab, or with at least a configurable
+   number of spaces.
    The criterion is a visible indentation; a space followed by a tab is ok
-   (because it gives an indent like a tab), and two spaces followed by a tab
+   (because it gives an indent like a tab), and a few spaces followed by a tab
    is fine too. */
 
 static int
 is_recipe_prefix (const char *line)
 {
+  struct variable *ivar = lookup_variable (".RECIPEINDENT", 13);
+  int indent = ivar ? atoi(ivar->value) : 4;
+  int i;
+
   assert(line);
-  return line[0] == '\t' ||
-         (line[0] == ' ' && (line[1] == '\t' || (line[1] == ' ' && (line[2] == '\t' || (line[2] == ' ' && ISBLANK(line[3]))))));
+  if (indent <= 0)
+    indent = 4;
+  for (i = 0; i < indent && line[i] == ' '; ++i)
+    {}
+  /* if the loop stopped because the count was reached, the result is true;
+     othersise, if the count was not reached, but the loop ended at a tab, the
+     result is true as well */
+  return (i == indent) || line[i] == '\t';
 }
 
 /* Remove comments from LINE.
