@@ -65,8 +65,8 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 /* Define to 1 if you have the 'atexit' function. */
 #define HAVE_ATEXIT 1
 
-/* Use case insensitive file names */
-/* #undef HAVE_CASE_INSENSITIVE_FS */
+/* Use case insensitive file names (case-insensitive may still be case-preserving) */
+#define HAVE_CASE_INSENSITIVE_FS
 
 /* Define to 1 if you have the clock_gettime function. */
 /* #undef HAVE_CLOCK_GETTIME */
@@ -335,7 +335,7 @@ char *ttyname (int);
 /* Define to 1 if you have the <sys/wait.h> header file. */
 /* #undef HAVE_SYS_WAIT_H */
 
-/* Define to 1 if you have the \'union wait' type in <sys/wait.h>. */
+/* Define to 1 if you have the 'union wait' type in <sys/wait.h>. */
 /* #undef HAVE_UNION_WAIT */
 
 /* Define to 1 if you have the <unistd.h> header file. */
@@ -350,7 +350,7 @@ char *ttyname (int);
 /* #undef HAVE_WAITPID */
 
 /* Build host information. */
-#define MAKE_HOST "Windows32"
+#define MAKE_HOST "Windows"
 
 /* Define to 1 to enable job server support in GNU make. */
 #define MAKE_JOBSERVER 1

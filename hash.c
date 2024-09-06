@@ -284,6 +284,7 @@ hash_print_stats (struct hash_table *ht, FILE *out_FILE)
 	   (ht->ht_lookups
 	    ? (100.0 * (double) ht->ht_collisions / (double) ht->ht_lookups)
 	    : 0));
+	fprintf (out_FILE, "\n");
 }
 
 /* Dump all items into a NULL-terminated vector.  Use the

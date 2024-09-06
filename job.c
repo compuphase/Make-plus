@@ -196,10 +196,8 @@ static const char *
 pid2str (pid_t pid)
 {
   static char pidstring[100];
-#if defined(WINDOWS32) && (__GNUC__ > 3 || _MSC_VER > 1300)
-  /* %Id is only needed for 64-builds, which were not supported by
-      older versions of Windows compilers.  */
-  sprintf (pidstring, "%Id", pid);
+#if defined(WINDOWS32) && (__GNUC__ > 3 || _MSC_VER > 1300) && defined(_WIN64)
+  sprintf (pidstring, "%" PRIu64, pid);
 #else
   sprintf (pidstring, "%lu", (unsigned long) pid);
 #endif
@@ -3637,7 +3635,7 @@ construct_command_argv (char *line, char **restp, struct file *file,
      */
     if (shell)
       {
-        char *p = w32ify (shell, 0);
+        char *p = convert_slashes (shell, 0);
         strcpy (shell, p);
       }
 #endif

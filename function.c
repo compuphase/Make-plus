@@ -68,7 +68,6 @@ function_table_entry_hash_cmp (const void *xv, const void *yv)
 }
 
 static struct hash_table function_table;
-
 
 /* Store into VARIABLE_BUFFER at O the result of scanning TEXT and replacing
    each occurrence of SUBST with REPLACE. TEXT is null-terminated.  SLEN is
@@ -131,7 +130,6 @@ subst_expand (char *o, const char *text, const char *subst, const char *replace,
 
   return o;
 }
-
 
 /* Store into VARIABLE_BUFFER at O the result of scanning TEXT
    and replacing strings matching PATTERN with REPLACE.
@@ -263,7 +261,6 @@ patsubst_expand (char *o, const char *text, char *pattern, char *replace)
   return patsubst_expand_pat (o, text, pattern, replace,
                               pattern_percent, replace_percent);
 }
-
 
 /* Look up a function by name.  */
 
@@ -284,7 +281,6 @@ lookup_function (const char *s)
 
   return hash_find_item (&function_table, &function_table_entry_key);
 }
-
 
 /* Return 1 if PATTERN matches STR, 0 if not.  */
 
@@ -307,7 +303,6 @@ pattern_matches (const char *pattern, const char *percent, const char *str)
 
   return streq (percent + 1, str + (strlength - sfxlen));
 }
-
 
 /* Find the next comma or ENDPAREN (counting nested STARTPAREN and
    ENDPARENtheses), starting at PTR before END.  Return a pointer to
@@ -339,7 +334,6 @@ find_next_argument (char startparen, char endparen,
   /* We didn't find anything.  */
   return NULL;
 }
-
 
 /* Glob-expand LINE.  The returned pointer is
    only good until the next call to string_glob.  */
@@ -393,9 +387,9 @@ string_glob (char *line)
 
   return result;
 }
-
+
 /*
-  Builtin functions
+  Built-in functions
  */
 
 static char *
@@ -495,6 +489,17 @@ func_origin (char *o, char **argv, const char *funcname UNUSED)
 }
 
 static char *
+func_defined (char *o, char **argv, const char *funcname UNUSED)
+{
+  struct variable *v = lookup_variable (argv[0], strlen (argv[0]));
+
+  if (v)
+    o = variable_buffer_output (o, argv[0], strlen (argv[0]));
+
+  return o;
+}
+
+static char *
 func_flavor (char *o, char **argv, const char *funcname UNUSED)
 {
   struct variable *v = lookup_variable (argv[0], strlen (argv[0]));
@@ -509,7 +514,6 @@ func_flavor (char *o, char **argv, const char *funcname UNUSED)
 
   return o;
 }
-
 
 static char *
 func_notdir_suffix (char *o, char **argv, const char *funcname)
@@ -750,7 +754,6 @@ func_subst (char *o, char **argv, const char *funcname UNUSED)
 
   return o;
 }
-
 
 static char *
 func_firstword (char *o, char **argv, const char *funcname UNUSED)
@@ -1442,6 +1445,16 @@ func_and (char *o, char **argv, const char *funcname UNUSED)
 }
 
 static char *
+func_not (char *o, char **argv, const char *funcname UNUSED)
+{
+  const char *s = argv[0];
+  NEXT_TOKEN (s);
+  if (*s == '\0')
+    o = variable_buffer_output (o,  "true", 4);
+  return o;
+}
+
+static char *
 func_wildcard (char *o, char **argv, const char *funcname UNUSED)
 {
 #ifdef _AMIGA
@@ -2055,35 +2068,6 @@ func_shell (char *o, char **argv, const char *funcname UNUSED)
 }
 #endif  /* !VMS */
 
-#ifdef EXPERIMENTAL
-
-/*
-  equality. Return is string-boolean, i.e., the empty string is false.
- */
-static char *
-func_eq (char *o, char **argv, char *funcname UNUSED)
-{
-  int result = ! strcmp (argv[0], argv[1]);
-  o = variable_buffer_output (o,  result ? "1" : "", result);
-  return o;
-}
-
-
-/*
-  string-boolean not operator.
- */
-static char *
-func_not (char *o, char **argv, char *funcname UNUSED)
-{
-  const char *s = argv[0];
-  int result = 0;
-  NEXT_TOKEN (s);
-  result = ! (*s);
-  o = variable_buffer_output (o,  result ? "1" : "", result);
-  return o;
-}
-#endif
-
 
 #ifdef HAVE_DOS_PATHS
 # ifdef __CYGWIN__
@@ -2413,6 +2397,7 @@ static struct function_table_entry function_table_init[] =
   FT_ENTRY ("quote",         0,  1,  1,  func_quote),
   FT_ENTRY ("subst",         3,  3,  1,  func_subst),
   FT_ENTRY ("suffix",        0,  1,  1,  func_notdir_suffix),
+  FT_ENTRY ("defined",       0,  1,  1,  func_defined),
   FT_ENTRY ("filter",        2,  2,  1,  func_filter_filterout),
   FT_ENTRY ("filter-out",    2,  2,  1,  func_filter_filterout),
   FT_ENTRY ("findstring",    2,  2,  1,  func_findstring),
@@ -2439,17 +2424,13 @@ static struct function_table_entry function_table_init[] =
   FT_ENTRY ("if",            2,  3,  0,  func_if),
   FT_ENTRY ("or",            1,  0,  0,  func_or),
   FT_ENTRY ("and",           1,  0,  0,  func_and),
+  FT_ENTRY ("empty",         0,  1,  1,  func_not),
   FT_ENTRY ("value",         0,  1,  1,  func_value),
   FT_ENTRY ("eval",          0,  1,  1,  func_eval),
   FT_ENTRY ("file",          1,  2,  1,  func_file),
-#ifdef EXPERIMENTAL
-  FT_ENTRY ("eq",            2,  2,  1,  func_eq),
-  FT_ENTRY ("not",           0,  1,  1,  func_not),
-#endif
 };
 
 #define FUNCTION_TABLE_ENTRIES (sizeof (function_table_init) / sizeof (struct function_table_entry))
-
 
 /* These must come after the definition of function_table.  */
 
@@ -2609,7 +2590,6 @@ handle_function (char **op, const char **stringp)
 
   return 1;
 }
-
 
 /* User-defined functions.  Expand the first argument as either a builtin
    function or a make variable, in the context of the rest of the arguments

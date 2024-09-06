@@ -428,19 +428,16 @@ static const struct command_switch switches[] =
     { 'e', flag, &env_overrides, 1, 1, 0, 0, 0, "environment-overrides", },
     { 'h', flag, &print_usage_flag, 0, 0, 0, 0, 0, "help" },
     { 'i', flag, &ignore_errors_flag, 1, 1, 0, 0, 0, "ignore-errors" },
-    { 'k', flag, &keep_going_flag, 1, 1, 0, 0, &default_keep_going_flag,
-      "keep-going" },
+    { 'k', flag, &keep_going_flag, 1, 1, 0, 0, &default_keep_going_flag, "keep-going" },
     { 'L', flag, &check_symlink_flag, 1, 1, 0, 0, 0, "check-symlink-times" },
     { 'm', ignore, 0, 0, 0, 0, 0, 0, 0 },
     { 'n', flag, &just_print_flag, 1, 1, 1, 0, 0, "just-print" },
     { 'p', flag, &print_data_base_flag, 1, 1, 0, 0, 0, "print-data-base" },
     { 'q', flag, &question_flag, 1, 1, 1, 0, 0, "question" },
     { 'r', flag, &no_builtin_rules_flag, 1, 1, 0, 0, 0, "no-builtin-rules" },
-    { 'R', flag, &no_builtin_variables_flag, 1, 1, 0, 0, 0,
-      "no-builtin-macros" },
+    { 'R', flag, &no_builtin_variables_flag, 1, 1, 0, 0, 0, "no-builtin-macros" },
     { 's', flag, &silent_flag, 1, 1, 0, 0, 0, "silent" },
-    { 'S', flag_off, &keep_going_flag, 1, 1, 0, 0, &default_keep_going_flag,
-      "no-keep-going" },
+    { 'S', flag_off, &keep_going_flag, 1, 1, 0, 0, &default_keep_going_flag, "no-keep-going" },
     { 't', flag, &touch_flag, 1, 1, 1, 0, 0, "touch" },
     { 'v', flag, &print_version_flag, 1, 1, 0, 0, 0, "version" },
     { 'w', flag, &print_directory_flag, 1, 1, 0, 0, 0, "print-directory" },
@@ -448,16 +445,12 @@ static const struct command_switch switches[] =
     /* These options take arguments.  */
     { 'C', filename, &directories, 0, 0, 0, 0, 0, "directory" },
     { 'f', filename, &makefiles, 0, 0, 0, 0, 0, "file" },
-    { 'I', filename, &include_directories, 1, 1, 0, 0, 0,
-      "include-dir" },
-    { 'j', positive_int, &arg_job_slots, 1, 1, 0, &inf_jobs, &default_job_slots,
-      "jobs" },
+    { 'I', filename, &include_directories, 1, 1, 0, 0, 0, "include-dir" },
+    { 'j', positive_int, &arg_job_slots, 1, 1, 0, &inf_jobs, &default_job_slots, "jobs" },
 #ifndef NO_FLOAT
-    { 'l', floating, &max_load_average, 1, 1, 0, &default_load_average,
-      &default_load_average, "load-average" },
+    { 'l', floating, &max_load_average, 1, 1, 0, &default_load_average, &default_load_average, "load-average" },
 #else
-    { 'l', positive_int, &max_load_average, 1, 1, 0, &default_load_average,
-      &default_load_average, "load-average" },
+    { 'l', positive_int, &max_load_average, 1, 1, 0, &default_load_average, &default_load_average, "load-average" },
 #endif
     { 'o', filename, &old_files, 0, 0, 0, 0, 0, "old-file" },
     { 'O', string, &output_sync_option, 1, 1, 0, "target", 0, "output-sync" },
@@ -831,7 +824,11 @@ prepare_mutex_handle_string (sync_handle_t handle)
       /* Prepare the mutex handle string for our children.  */
       /* 2 hex digits per byte + 2 characters for "0x" + null.  */
       sync_mutex = xmalloc ((2 * sizeof (sync_handle_t)) + 2 + 1);
-      sprintf (sync_mutex, "0x%Ix", handle);
+      #if defined(_WIN64)
+        sprintf (sync_mutex, "0x%" PRIx64, handle);
+      #else
+        sprintf (sync_mutex, "0x%lx", (unsigned long)handle);
+      #endif
       define_makeflags (1, 0);
     }
 }
@@ -953,7 +950,7 @@ find_and_set_default_shell (const char *token)
       batch_mode_shell = 1;
       unixy_shell = 0;
       sprintf (sh_path, "%s", search_token);
-      default_shell = xstrdup (w32ify (sh_path, 0));
+      default_shell = xstrdup (convert_slashes (sh_path, 0));
       DB (DB_VERBOSE, (_("find_and_set_shell() setting default_shell = %s\n"),
                        default_shell));
       sh_found = 1;
@@ -968,7 +965,7 @@ find_and_set_default_shell (const char *token)
     {
       /* search token path was found */
       sprintf (sh_path, "%s", search_token);
-      default_shell = xstrdup (w32ify (sh_path, 0));
+      default_shell = xstrdup (convert_slashes (sh_path, 0));
       DB (DB_VERBOSE, (_("find_and_set_shell() setting default_shell = %s\n"),
                        default_shell));
       sh_found = 1;
@@ -993,7 +990,7 @@ find_and_set_default_shell (const char *token)
               sprintf (sh_path, "%s/%s", p, search_token);
               if (_access (sh_path, 0) == 0)
                 {
-                  default_shell = xstrdup (w32ify (sh_path, 0));
+                  default_shell = xstrdup (convert_slashes (sh_path, 0));
                   sh_found = 1;
                   *ep = PATH_SEPARATOR_CHAR;
 
@@ -1015,7 +1012,7 @@ find_and_set_default_shell (const char *token)
               sprintf (sh_path, "%s/%s", p, search_token);
               if (_access (sh_path, 0) == 0)
                 {
-                  default_shell = xstrdup (w32ify (sh_path, 0));
+                  default_shell = xstrdup (convert_slashes (sh_path, 0));
                   sh_found = 1;
                 }
             }
@@ -1583,7 +1580,7 @@ main (int argc, char **argv, char **envp)
       print_version ();
 
       if (config_file_path == NULL || strlen (config_file_path) == 0)
-        printf("%s\n%sUsing without configuration file\n", precede, precede);
+        printf("%s\n%sNot using any configuration file (no built-in rules)\n", precede, precede);
       else
         printf("%s\n%sUsing configuration file: %s\n", precede, precede,
                config_file_path);
@@ -1605,7 +1602,7 @@ main (int argc, char **argv, char **envp)
    */
   if (strpbrk (argv[0], "/:\\") || strstr (argv[0], "..")
       || strneq (argv[0], "//", 2))
-    argv[0] = xstrdup (w32ify (argv[0], 1));
+    argv[0] = xstrdup (convert_slashes (argv[0], 1));
 #else /* WINDOWS32 */
 #if defined (__MSDOS__) || defined (__EMX__)
   if (strchr (argv[0], '\\'))
@@ -3389,7 +3386,7 @@ print_version (void)
      word "Copyright"), so it hardly seems worth it.  */
 
   printf ("%sCopyright (C) 1988-2016 Free Software Foundation, Inc.\n"
-          "%sCopyright (c) 2019 CompuPhase",
+          "%sCopyright (c) 2019-2024 CompuPhase\n",
           precede, precede);
 
   printf (_("%sLicense GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\

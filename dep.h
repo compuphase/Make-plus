@@ -34,6 +34,7 @@ struct nameseq
 #define RM_INCLUDED             (1 << 1) /* Search makefile search path.  */
 #define RM_DONTCARE             (1 << 2) /* No error if it doesn't exist.  */
 #define RM_NO_TILDE             (1 << 3) /* Don't expand ~ in file name.  */
+#define RM_TRY_EXTENSION        (1 << 4) /* Try standard extension on filename.  */
 #define RM_NOFLAG               0
 
 /* Structure representing one dependency of a file.

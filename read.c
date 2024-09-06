@@ -162,7 +162,7 @@ static char *unescape_char (char *string, int c);
 */
 #define word1eq(s)      (wlen == CSTRLEN (s) && strneq (s, p, CSTRLEN (s)))
 
-
+
 /* Read in all the makefiles and return a chain of targets to rebuild.  */
 
 struct goaldep *
@@ -215,7 +215,7 @@ read_all_makefiles (const char **makefiles)
   if (makefiles != 0)
     while (*makefiles != 0)
       {
-        struct goaldep *d = eval_makefile (*makefiles, 0);
+        struct goaldep *d = eval_makefile (*makefiles, RM_TRY_EXTENSION);
 
         if (errno)
           perror_with_name ("", *makefiles);
@@ -284,7 +284,7 @@ read_all_makefiles (const char **makefiles)
 
   return read_files;
 }
-
+
 /* Install a new conditional and return the previous one.  */
 
 static struct conditionals *
@@ -310,7 +310,7 @@ restore_conditionals (struct conditionals *saved)
   /* Restore state.  */
   conditionals = saved;
 }
-
+
 static struct goaldep *
 eval_makefile (const char *filename, short flags)
 {
@@ -318,6 +318,7 @@ eval_makefile (const char *filename, short flags)
   struct ebuffer ebuf;
   const floc *curfile;
   char *expanded = 0;
+  char *auto_extension = 0;
   int makefile_errno;
 
   ebuf.floc.filenm = filename; /* Use the original file name.  */
@@ -335,6 +336,8 @@ eval_makefile (const char *filename, short flags)
         printf (_(" (don't care)"));
       if (flags & RM_NO_TILDE)
         printf (_(" (no ~ expansion)"));
+      if (flags & RM_TRY_EXTENSION)
+        printf (_(" (allow implicit extension)"));
       puts ("...");
     }
 
@@ -347,6 +350,28 @@ eval_makefile (const char *filename, short flags)
       expanded = tilde_expand (filename);
       if (expanded != 0)
         filename = expanded;
+    }
+
+  /* Try adding an extension to a filename (if not found).  */
+  if (access(filename, 0) != 0 && (flags & RM_TRY_EXTENSION) && !(flags & RM_INCLUDED))
+    {
+      size_t len = strlen (filename);
+      auto_extension = xmalloc (len + 6);
+      if (auto_extension)
+        {
+          strcpy(auto_extension, filename);
+          strcat (auto_extension, ".make");
+          if (access(auto_extension, 0) == 0)
+            filename = auto_extension;
+          else
+            {
+              auto_extension[len + 4] = '\0'; /* Erase final 'e' in '.make' extension.  */
+              if (access(auto_extension, 0) == 0)
+                filename = auto_extension;
+              else
+                free (auto_extension);
+            }
+        }
     }
 
   ENULLLOOP (ebuf.fp, fopen (filename, "r"));
@@ -403,7 +428,10 @@ eval_makefile (const char *filename, short flags)
   filename = deps->file->name;
   deps->flags = flags;
 
-  free (expanded);
+  if (expanded)
+    free (expanded);
+  if (auto_extension)
+    free (auto_extension);
 
   /* If the makefile can't be found at all, give up entirely.  */
 
@@ -485,7 +513,7 @@ eval_buffer (char *buffer, const floc *flocp)
 
   alloca (0);
 }
-
+
 /* Check LINE to see if it's a variable assignment or undefine.
 
    It might use one of the modifiers "export", "override", "private", or it
@@ -559,7 +587,6 @@ parse_var_assignment (const char *line, struct vmodifiers *vmod)
   vmod->assign_v = 1;
   return (char *)p;
 }
-
 
 /* Read file FILENAME as a makefile and add its contents to the data base.
 
@@ -1405,7 +1432,6 @@ eval (struct ebuffer *ebuf, int set_default)
   free (collapsed);
   free (commands);
 }
-
 
 /* Check whether a line starts with either a tab, or with at least a configurable
    number of spaces.
@@ -1615,10 +1641,10 @@ do_define (char *name, enum variable_origin origin, struct ebuffer *ebuf)
   free (n);
   return (v);
 }
-
 
-/* Check whether the line starts with a conditional directive ("ifdef", "ifndef",
-   "ifeq", "ifneq", "else" and "endif"). This fuctions returns 0 or 1.  */
+/* Check whether the line starts with a conditional directive ("ifdef",
+   "ifndef", "ifeq", "ifneq", "ifset", "ifclear", "else" and "endif"). This
+   fuction returns 0 or 1. */
 static int
 is_conditional (const char *line)
 {
@@ -1634,28 +1660,32 @@ is_conditional (const char *line)
          word1eq ("ifndef") ||
          word1eq ("ifeq") ||
          word1eq ("ifneq") ||
+         word1eq ("ifset") ||
+         word1eq ("ifclear") ||
          word1eq ("else") ||
          word1eq ("endif");
 #undef word1eq
 }
 
-/* Interpret conditional commands "ifdef", "ifndef", "ifeq",
-   "ifneq", "else" and "endif".
-   LINE is the input line, with the command as its first word.
-
-   FILENAME and LINENO are the filename and line number in the
-   current makefile.  They are used for error messages.
-
-   Value is -2 if the line is not a conditional at all,
-   -1 if the line is an invalid conditional,
-   0 if following text should be interpreted,
-   1 if following text should be ignored.  */
+/** Interpret conditional commands "ifdef", "ifndef", "ifeq", "ifneq",
+ *  "ifset", "ifclear", "else" and "endif".
+ *
+ * \param line      The input line, with the command as its first word.
+ * \param len       The length of the first word on `line`.
+ * \param flocp     The structure with the filename and line number in the
+ *                  current makefile. These are used for error messages.
+ *
+ *  \return -2 if the line is not a conditional at all,
+ *          -1 if the line is an invalid conditional,
+ *          0 if following text should be interpreted,
+ *          1 if following text should be ignored.
+ */
 
 static int
 conditional_line (char *line, int len, const floc *flocp)
 {
   const char *cmdname;
-  enum { c_ifdef, c_ifndef, c_ifeq, c_ifneq, c_else, c_endif } cmdtype;
+  enum { c_ifdef, c_ifndef, c_ifeq, c_ifneq, c_ifset, c_ifclear, c_else, c_endif } cmdtype;
   unsigned int i;
   unsigned int o;
 
@@ -1668,6 +1698,8 @@ conditional_line (char *line, int len, const floc *flocp)
   else chkword ("ifndef", c_ifndef)
   else chkword ("ifeq", c_ifeq)
   else chkword ("ifneq", c_ifneq)
+  else chkword ("ifset", c_ifset)
+  else chkword ("ifclear", c_ifclear)
   else chkword ("else", c_else)
   else chkword ("endif", c_endif)
   else
@@ -1803,14 +1835,12 @@ conditional_line (char *line, int len, const floc *flocp)
       var[i] = '\0';
       v = lookup_variable (var, i);
 
-      conditionals->ignoring[o] =
-        ((v != 0) == (cmdtype == c_ifndef));
+      conditionals->ignoring[o] = ((v != 0) == (cmdtype == c_ifndef));
 
       free (var);
     }
-  else
+  else if (cmdtype == c_ifeq || cmdtype == c_ifneq)
     {
-      /* "ifeq" or "ifneq".  */
       char *s1, *s2;
       unsigned int l;
       char termin = *line == '(' ? ',' : *line;
@@ -1901,6 +1931,15 @@ conditional_line (char *line, int len, const floc *flocp)
       s2 = variable_expand (s2);
       conditionals->ignoring[o] = (streq (s1, s2) == (cmdtype == c_ifneq));
     }
+  else
+    {
+      char *s;
+
+      assert (cmdtype == c_ifset || cmdtype == c_ifclear);
+      s = variable_expand (line);
+      NEXT_TOKEN (s);
+      conditionals->ignoring[o] = ((*s != '\0') == (cmdtype == c_ifclear));
+    }
 
  DONE:
   /* Search through the stack to see if we're ignoring.  */
@@ -1909,7 +1948,6 @@ conditional_line (char *line, int len, const floc *flocp)
       return 1;
   return 0;
 }
-
 
 /* Record target-specific variable values for files FILENAMES.
    TWO_COLON is nonzero if a double colon was used.
@@ -2010,7 +2048,7 @@ record_target_var (struct nameseq *filenames, char *defn,
         }
     }
 }
-
+
 /* Record a description line for files FILENAMES,
    with dependencies DEPS, commands to execute described
    by COMMANDS and COMMANDS_IDX, coming from FILENAME:COMMANDS_STARTED.
@@ -2303,7 +2341,7 @@ record_files (struct nameseq *filenames, const char *pattern,
            _("*** mixed implicit and normal rules: deprecated syntax"));
     }
 }
-
+
 /* Search STRING for an unquoted STOPCHAR or blank (if BLANK is nonzero).
    Backslashes quote STOPCHAR, blanks if BLANK is nonzero, and backslash.
    Quoting backslashes are removed from STRING by compacting it into
@@ -2526,7 +2564,7 @@ find_percent_cached (const char **string)
   /* If we didn't find a %, return NULL.  Otherwise return a ptr to it.  */
   return (*p == '\0') ? NULL : p;
 }
-
+
 /* Find the next line of text in an eval buffer, combining continuation lines
    into one line.
    Return the number of actual lines read (> 1 if continuation lines).
@@ -2709,7 +2747,7 @@ readline (struct ebuffer *ebuf)
 
   return nlines ? nlines : p == ebuf->bufstart ? -1 : 1;
 }
-
+
 /* Parse the next "makefile word" from the input buffer, and return info
    about it.
 
@@ -2897,7 +2935,7 @@ get_next_mword (char *buffer, char *delim, char **startp, unsigned int *length)
     *length = p - beg;
   return wtype;
 }
-
+
 /* Construct the list of include directories
    from the arguments and the default list.  */
 
@@ -3010,7 +3048,7 @@ construct_include_path (const char **arg_dirs)
 
   include_directories = dirs;
 }
-
+
 /* Expand ~ or ~USER at the beginning of NAME.
    Return a newly malloc'd string or 0.  */
 
@@ -3082,7 +3120,7 @@ tilde_expand (const char *name)
 #endif /* !VMS */
   return 0;
 }
-
+
 /* Parse a string into a sequence of filenames represented as a chain of
    struct nameseq's and return that chain.  Optionally expand the strings via
    glob().

@@ -37,7 +37,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 const char *version_string = VERSION;
 const char *make_host = MAKE_HOST;
-
+
 /*
   Local variables:
   version-control: never

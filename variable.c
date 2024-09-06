@@ -855,7 +855,7 @@ merge_variable_set_lists (struct variable_set_list **setlist0,
         last0->next = setlist1;
     }
 }
-
+
 /* Define the automatic variables, and record the addresses
    of their structures so we can change their values quickly.  */
 
@@ -1139,7 +1139,14 @@ target_environment (struct file *file)
 #ifdef WINDOWS32
             if (strcmp (v->name, "Path") == 0 ||
                 strcmp (v->name, "PATH") == 0)
-              convert_Path_to_windows32 (value, ';');
+              {
+                char * tmp = convert_Path_to_windows32 (value, PATH_SEPARATOR_CHAR);
+                if (tmp)
+                  {
+                    free (value);
+                    value = tmp;
+                  }
+              }
 #endif
             *result++ = xstrdup (concat (3, v->name, "=", value));
             free (value);
@@ -1149,7 +1156,14 @@ target_environment (struct file *file)
 #ifdef WINDOWS32
             if (strcmp (v->name, "Path") == 0 ||
                 strcmp (v->name, "PATH") == 0)
-              convert_Path_to_windows32 (v->value, ';');
+              {
+                char * tmp = convert_Path_to_windows32 (v->value, PATH_SEPARATOR_CHAR);
+                if (tmp)
+                  {
+                    free (v->value);
+                    v->value = tmp;
+                  }
+              }
 #endif
             *result++ = xstrdup (concat (3, v->name, "=", v->value));
           }
@@ -1763,7 +1777,6 @@ print_variable_set (struct variable_set *set, const char *prefix, int pauto)
   fputs (_("# variable set hash-table stats:\n"), stdout);
   fputs ("# ", stdout);
   hash_print_stats (&set->table, stdout);
-  putc ('\n', stdout);
 }
 
 /* Print the data base of variables.  */
@@ -1826,19 +1839,25 @@ print_target_variables (const struct file *file)
 void
 sync_Path_environment (void)
 {
-  char *path = allocated_variable_expand ("$(PATH)");
   static char *environ_path = NULL;
+  char *path2;
+  char *path = allocated_variable_expand ("$(PATH)");
 
   if (!path)
     return;
 
   /* If done this before, free the previous entry before allocating new one.  */
-  free (environ_path);
+  if (environ_path)
+    free(environ_path);
 
-  /* Create something WINDOWS32 world can grok.  */
-  convert_Path_to_windows32 (path, ';');
-  environ_path = xstrdup (concat (3, "PATH", "=", path));
-  putenv (environ_path);
+  /* Create something Windows world can grok.  */
+  path2 = convert_Path_to_windows32 (path, PATH_SEPARATOR_CHAR);
+  if (path2)
+    {
+      environ_path = xstrdup (concat(3, "PATH", "=", path));
+      putenv (environ_path);
+      free (path2);
+    }
   free (path);
 }
 #endif

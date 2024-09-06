@@ -51,7 +51,7 @@ static struct vpath *general_vpath;
 /* Structure for GPATH given in the variable.  */
 
 static struct vpath *gpaths;
-
+
 
 /* Reverse the chain of selective VPATH lists so they will be searched in the
    order given in the makefiles and construct the list from the VPATH
@@ -74,7 +74,7 @@ build_vpath_lists (void)
 
   vpaths = new;
 
-  /* If there is a VPATH variable with a nonnull value, construct the
+  /* If there is a VPATH variable with a non-null value, construct the
      general VPATH list from it.  We use variable_expand rather than just
      calling lookup_variable so that it will be recursively expanded.  */
 
@@ -140,7 +140,7 @@ build_vpath_lists (void)
       vpaths = save_vpaths;
     }
 }
-
+
 /* Construct the VPATH listing for the PATTERN and DIRPATH given.
 
    This function is called to generate selective VPATH lists and also for
@@ -169,11 +169,12 @@ construct_vpath_list (char *pattern, char *dirpath, int exclusive)
   unsigned int maxvpath;
   unsigned int maxelem;
   const char *percent = NULL;
+  int isescaped;
 
   if (pattern != 0)
     percent = find_percent (pattern);
 
-  if (dirpath == 0)
+  if (!dirpath)
     {
       /* Remove matching listings.  */
       struct vpath *path, *lastpath;
@@ -211,7 +212,9 @@ construct_vpath_list (char *pattern, char *dirpath, int exclusive)
     }
 
 #ifdef WINDOWS32
-    convert_vpath_to_windows32 (dirpath, ';');
+    dirpath = convert_vpath_from_windows32(dirpath, ';');
+    if (!dirpath)
+      return;
 #endif
 
   /* Skip over any initial separators and blanks.  */
@@ -221,12 +224,19 @@ construct_vpath_list (char *pattern, char *dirpath, int exclusive)
   /* Figure out the maximum number of VPATH entries and put it in
      MAXELEM.  We start with 2, one before the first separator and one
      nil (the list terminator) and increment our estimated number for
-     each separator or blank we find.  */
+     each separator or blank we find.
+     The path string is assumed to be in canonical format. */
   maxelem = 2;
-  p = dirpath;
-  while (*p != '\0')
-    if (STOP_SET (*p++, MAP_BLANK|MAP_PATHSEP))
-      ++maxelem;
+  isescaped = 0;
+  for (p = dirpath; *p != '\0'; ++p)
+    {
+      if ((!isescaped && ISBLANK (*p)) || STOP_SET (*p, MAP_PATHSEP))
+        ++maxelem;
+      if (*p == '\\')
+        isescaped ^= 1;
+      else
+        isescaped = 0;
+    }
 
   vpath = xmalloc (maxelem * sizeof (const char *));
   maxvpath = 0;
@@ -239,6 +249,7 @@ construct_vpath_list (char *pattern, char *dirpath, int exclusive)
       unsigned int len;
 
       /* Find the end of this entry.  */
+      isescaped = 0;
       v = p;
       while (*p != '\0'
 #if defined(HAVE_DOS_PATHS) && (PATH_SEPARATOR_CHAR == ':')
@@ -251,18 +262,26 @@ construct_vpath_list (char *pattern, char *dirpath, int exclusive)
 #else
              && *p != PATH_SEPARATOR_CHAR
 #endif
-             && !ISBLANK (*p))
-        ++p;
+             && (!ISBLANK (*p) || isescaped))
+        {
+          if (*p == '\\')
+            isescaped ^= 1;
+          else
+            isescaped = 0;
+          ++p;
+        }
 
       len = p - v;
       /* Make sure there's no trailing slash,
          but still allow "/" as a directory.  */
 #if defined(__MSDOS__) || defined(__EMX__) || defined(HAVE_DOS_PATHS)
       /* We need also to leave alone a trailing slash in "d:/".  */
-      if (len > 3 || (len > 1 && v[1] != ':'))
-#endif
+      if ((len > 3 || (len > 1 && v[1] != ':')) && (p[-1] == '/' || p[-1] == '\\'))
+        --len;
+#else
       if (len > 1 && p[-1] == '/')
         --len;
+#endif
 
       /* Put the directory on the vpath list.  */
       if (len > 1 || *v != '.')
@@ -304,10 +323,14 @@ construct_vpath_list (char *pattern, char *dirpath, int exclusive)
     }
   else
     /* There were no entries, so free whatever space we allocated.  */
-    /* MSVC erroneously warns without a cast here.  */
-    free ((void *)vpath);
+    /* The cast is needed for Microsoft Visual C/C++, because 'vpath' is const.  */
+    free((void*)vpath);
+
+#ifdef WINDOWS32
+    free(dirpath);
+#endif
 }
-
+
 /* Search the GPATH list for a pathname string that matches the one passed
    in.  If it is found, return 1.  Otherwise we return 0.  */
 
@@ -324,7 +347,7 @@ gpath_search (const char *file, unsigned int len)
 
   return 0;
 }
-
+
 /* Match a file against the pattern in a vpath. */
 
 static int vpath_match(const struct vpath *vpath, const char *filename)
@@ -350,7 +373,7 @@ static int vpath_match(const struct vpath *vpath, const char *filename)
 
   return 0;
 }
-
+
 /* Search the given VPATH list for a directory where the name pointed to by
    FILE exists.  If it is found, we return a cached name of the existing file
    and set *MTIME_PTR (if MTIME_PTR is not NULL) to its modtime (or zero if no
@@ -662,7 +685,7 @@ vpath_search (const char *file, FILE_TIMESTAMP *mtime_ptr, int *target_path,
   return 0;
 }
 
-
+
 /* Print the data base of VPATH search paths.  */
 
 void
@@ -671,7 +694,7 @@ print_vpath_data_base (void)
   unsigned int nvpaths;
   struct vpath *v;
 
-  puts (_("\n# VPATH Search Paths\n"));
+  puts (_("\n# VPATH Search Paths"));
 
   nvpaths = 0;
   for (v = vpaths; v != 0; v = v->next)
@@ -686,8 +709,16 @@ print_vpath_data_base (void)
         printf ("vpath %s ", v->pattern);
 
       for (i = 0; v->searchpath[i] != 0; ++i)
-        printf ("%s%c", v->searchpath[i],
-                v->searchpath[i + 1] == 0 ? '\n' : PATH_SEPARATOR_CHAR);
+        {
+#ifdef WINDOWS32
+          char *p = convert_Path_to_windows32 (v->searchpath[i], PATH_SEPARATOR_CHAR);
+          printf ("%s", p);
+          free (p);
+#else
+          printf ("%s", v->searchpath[i]);
+#endif
+          printf ("%c", v->searchpath[i + 1] == 0 ? '\n' : PATH_SEPARATOR_CHAR);
+        }
     }
 
   if (vpaths == 0)

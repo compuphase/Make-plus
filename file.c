@@ -62,10 +62,9 @@ static struct hash_table files;
 /* Whether or not .SECONDARY with no prerequisites was given.  */
 static int all_secondary = 0;
 
-/* Access the hash table of all file records.
-   lookup_file  given a name, return the struct file * for that name,
-                or nil if there is none.
-*/
+/** lookup_file(): given a name, return the `struct file *` for that name,
+ *  or nil if there is none. Accesses the hash table of all file records.
+ */
 
 struct file *
 lookup_file (const char *name)
@@ -208,7 +207,7 @@ enter_file (const char *name)
 
   return new;
 }
-
+
 /* Rehash FILE to NAME.  This is not as simple as resetting
    the 'hname' member, since it must be put in a new hash bucket,
    and possibly merged with an existing file called NAME.  */
@@ -355,7 +354,7 @@ rename_file (struct file *from_file, const char *to_hname)
       from_file = from_file->prev;
     }
 }
-
+
 /* Remove all nonprecious intermediate files.
    If SIG is nonzero, this was caused by a fatal signal,
    meaning that a different message will be printed, and
@@ -435,7 +434,7 @@ remove_intermediates (int sig)
       fflush (stdout);
     }
 }
-
+
 /* Given a string containing prerequisites (fully expanded), break it up into
    a struct dep list.  Enter each of these prereqs into the file database.
  */
@@ -787,7 +786,7 @@ snap_deps (void)
   */
 #endif
 }
-
+
 /* Set the 'command_state' member of FILE and all its 'also_make's.  */
 
 void
@@ -800,7 +799,7 @@ set_command_state (struct file *file, enum cmd_state state)
   for (d = file->also_make; d != 0; d = d->next)
     d->file->command_state = state;
 }
-
+
 /* Convert an external file timestamp to internal form.  */
 
 FILE_TIMESTAMP
@@ -824,7 +823,7 @@ file_timestamp_cons (const char *fname, time_t stamp, long int ns)
 
   return ts;
 }
-
+
 /* Return the current time as a file timestamp, setting *RESOLUTION to
    its resolution.  */
 FILE_TIMESTAMP
@@ -905,7 +904,7 @@ file_timestamp_sprintf (char *p, FILE_TIMESTAMP ts)
 
   *p = '\0';
 }
-
+
 /* Print the data base of files.  */
 
 void
@@ -1046,7 +1045,7 @@ print_file_data_base (void)
   fputs (_("\n# files hash-table stats:\n# "), stdout);
   hash_print_stats (&files, stdout);
 }
-
+
 /* Verify the integrity of the data base of files.  */
 
 #define VERIFY_CACHED(_p,_n) \

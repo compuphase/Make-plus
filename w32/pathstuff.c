@@ -14,87 +14,218 @@ A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
+#include <assert.h>
 #include "makeint.h"
 #include <string.h>
 #include <stdlib.h>
 #include "pathstuff.h"
 
-/*
- * Convert delimiter separated vpath to Canonical format.
+#if defined(WINDOWS32)
+# include "w32/strlcpy.h"
+#endif
+
+/** Convert a delimiter separated vpath to canonical format. Since the path can
+ *  grow (and shrink) in the conversion, this routine returns a newly allocated
+ *  string (that must be free'd).
+ *
+ *  \param Path     The path in Windows-specific  format. This parameter must be
+ *                  valid (it should not be NULL).
+ *  \param delim    The delimiter to separate paths in a list (typically a ; in
+ *                  Windows).
+ *
+ *  \return The path in canonical format, or NULL on failure. Failure occurs on
+ *          insufficient memory or when `Path` is an empty string.
+ *
+ *  \note This function handles:
+ *        - strings already in canonical format (no change)
+ *        - strings with escaped spaces, but delimited in Windows' style (the
+ *          delimiter is replaced with a space, no other changes)
+ *        - strings with paths in double quotes (spaces are escaped and double
+ *          quotes are removed)
+ *        - strings with spaces _not_ in double quotes, but delimited Windows'
+ *          style (spaces are escaped, delimiters are replaced)
  */
 char *
-convert_vpath_to_windows32(char *Path, char to_delim)
+convert_vpath_from_windows32(const char *Path, char delim)
 {
-    char *etok;            /* token separator for old Path */
+    const char *src;
+    char *cpath, *tgt;
+    int instring, isescaped, delim_found;
+    size_t size;
 
-        /*
-         * Convert all spaces to delimiters. Note that pathnames which
-         * contain blanks get trounced here. Use 8.3 format as a workaround.
-         */
-        for (etok = Path; etok && *etok; etok++)
-                if (ISBLANK ((unsigned char) *etok))
-                        *etok = to_delim;
+    assert(Path);
+    while (*Path != '\0' && ISBLANK((unsigned char)*Path))
+        Path++;
+    if (*Path == '\0')
+        return NULL;
 
-        return (convert_Path_to_windows32(Path, to_delim));
+    /* check how many bytes are needed; for the count, it is assumed that all
+       spaces need escaping, because allocating a few bytes too many isn't a
+       problem; at the same time, we check for delimiters outside quoted strings */
+    delim_found = 0;
+    instring = 0;
+    size = 0;
+    for (src = Path; *src != '\0'; src++) {
+        size += (ISBLANK((unsigned char)*src)) ? 2 : 1;
+        if (*src == '"')
+            instring = !instring;
+        else if (*src == delim && !instring)
+            delim_found = 1;
+    }
+
+    /* allocate memory */
+    cpath = xmalloc(size + 1);
+    if (!cpath)
+        return NULL;
+
+    /* now do the conversion */
+    src = Path;
+    tgt = cpath;
+    instring = 0;
+    isescaped = 0;
+    while (*src != '\0') {
+        if (*src == '"') {
+            /* skip the double quote and toggle escaping spaces */
+            instring = !instring;
+            isescaped = 0;
+        } else if (ISBLANK((unsigned char)*src) && !isescaped && (instring || delim_found)) {
+            /* escape the space */
+            *tgt++ = '\\';
+            *tgt++ = ' ';
+        } else if (*src == delim && !instring) {
+            /* replace delimitor by space (but only outside quoted strings) */
+            while (tgt > cpath && ISBLANK((unsigned char)*(tgt - 1)))
+                tgt--;  /* remove spaces before the delimiter */
+            *tgt++=' ';
+            while (ISBLANK((unsigned char)*(src + 1)))
+                src++;  /* skip spaces behind the delimiter */
+        } else {
+            *tgt++ = *src;
+        }
+        /* upon seeing a \, the next character is considered escaped, but a
+           double \ cancels this (and inside a quoted string, a \ does not have
+           a special meaning) */
+        if (!instring && *src == '\\')
+            isescaped ^= 1;
+        else
+            isescaped = 0;
+        src++;
+    }
+    assert((tgt - cpath) <= size);
+    while (tgt > cpath && ISBLANK((unsigned char)*(tgt - 1)))
+        tgt--;  /* remove trailing spaces */
+    *tgt = '\0';
+
+    return cpath;
 }
 
-/*
- * Convert delimiter separated path to Canonical format.
+/** Convert Canonical format to Windows-specific format. This means that if
+ *  there are escaped spaces in a path name, that path name must be enclosed in
+ *  double quotes. As a result, the path can grow (and shrink). The returned
+ *  string is therefore allocated dynamically (and must be free'd).
+ *
+ *  \param Path     The path in canonical format. This parameter must be valid
+ *                  (it should not be NULL).
+ *  \param delim    The delimiter to insert between multiple path names in a
+ *                  list.
  */
 char *
-convert_Path_to_windows32(char *Path, char to_delim)
+convert_Path_to_windows32(const char *Path, char delim)
 {
-    char *etok;            /* token separator for old Path */
-    char *p;            /* points to element of old Path */
+    const char *src;
+    char *wpath, *tgt, *mark;
+    int enquote, instring;
+    size_t size;
 
-    /* is this a multi-element Path ? */
-    /* FIXME: Perhaps use ":;\"" in strpbrk to convert all quotes to
-       delimiters as well, as a way to handle quoted directories in
-       PATH?  */
-    for (p = Path, etok = strpbrk(p, ":;");
-         etok;
-         etok = strpbrk(p, ":;"))
-        if ((etok - p) == 1) {
-            if (*(etok - 1) == ';' ||
-                *(etok - 1) == ':') {
-                etok[-1] = to_delim;
-                etok[0] = to_delim;
-                p = ++etok;
-                continue;    /* ignore empty bucket */
-            } else if (!isalpha ((unsigned char) *p)) {
-                /* found one to count, handle things like '.' */
-                *etok = to_delim;
-                p = ++etok;
-            } else if ((*etok == ':') && (etok = strpbrk(etok+1, ":;"))) {
-                /* found one to count, handle drive letter */
-                *etok = to_delim;
-                p = ++etok;
-            } else
-                /* all finished, force abort */
-                p += strlen(p);
-        } else if (*p == '"') { /* a quoted directory */
-            for (p++; *p && *p != '"'; p++) /* skip quoted part */
-                ;
-            etok = strpbrk(p, ":;");        /* find next delimiter */
-            if (etok) {
-                *etok = to_delim;
-                p = ++etok;
-            } else
-                p += strlen(p);
+    assert(Path);
+    while (*Path != '\0' && ISBLANK((unsigned char)*Path))
+        Path++;
+    if (*Path == '\0')
+        return NULL;
+
+    /* dry run, check how many bytes are needed */
+    src = Path;
+    enquote = 0;
+    instring = 0;
+    size = 0;
+    while (*src != '\0') {
+        if (!instring && *src == '\\' && ISBLANK((unsigned char)*(src + 1))) {
+            enquote = 1;
+            src++;
+            size++;
+        } else if (!instring && ISBLANK((unsigned char)*src)) {
+            if (enquote) {
+                size += 2;  /* +2 for double-quotes */
+                enquote = 0;
+            }
+            size += 1;      /* +1 for delimiter */
+            mark = tgt;
         } else {
-            /* found another one, no drive letter */
-            *etok = to_delim;
-            p = ++etok;
+            if (*src == '"')
+                instring = !instring;
+            size++;
         }
+        src++;
+    }
+    if (enquote)
+        size += 2;
 
-    return Path;
+    /* allocate memory */
+    wpath = xmalloc(size + 1);
+    if (!wpath)
+        return NULL;
+
+    /* now do the conversion */
+    src = Path;
+    tgt = wpath;
+    mark = tgt;
+    enquote = 0;
+    instring = 0;
+    while (*src != '\0') {
+        if (!instring && *src == '\\' && ISBLANK((unsigned char)*(src + 1))) {
+            /* escaped space, convert to normal space, but remember that we did
+               this) */
+            enquote = 1;
+            src++;      /* skip '\\' (space is skipped at end of the loop) */
+            *tgt++ = ' ';
+        } else if (!instring && ISBLANK((unsigned char)*src)) {
+            if (enquote) {
+                /* escaped spaces found (which were translated to plain spaces),
+                   now we need to enclose the path in double-quotes (which is
+                   why we kept a mark to the start of the path) */
+                *tgt++ = '"';
+                memmove(mark + 1, mark, tgt - mark);
+                *mark = '"';
+                tgt++;  /* add 1 for the inserted double-quote at the mark */
+                enquote = 0;
+            }
+            *tgt++ = delim;
+            mark = tgt;
+        } else {
+            if (*src == '"')
+                instring = !instring;
+            *tgt++ = *src;
+        }
+        src++;
+    }
+    if (enquote) {
+        /* enclose last segment in double quotes */
+        *tgt++ = '"';
+        memmove(mark + 1, mark, tgt - mark);
+        *mark = '"';
+        tgt++;  /* add 1 for the inserted double-quote at the mark */
+    }
+    assert(tgt-wpath==size);
+    *tgt = '\0';
+
+    return wpath;
 }
 
 /*
  * Convert to forward slashes. Resolve to full pathname optionally
  */
 char *
-w32ify(const char *filename, int resolve)
+convert_slashes(const char *filename, int resolve)
 {
     static char w32_path[FILENAME_MAX];
     char *p;
@@ -102,7 +233,7 @@ w32ify(const char *filename, int resolve)
     if (resolve)
         _fullpath(w32_path, filename, sizeof (w32_path));
     else
-        strncpy(w32_path, filename, sizeof (w32_path));
+        strlcpy(w32_path, filename, sizeof (w32_path));
 
     for (p = w32_path; p && *p; p++)
         if (*p == '\\')
@@ -117,8 +248,8 @@ getcwd_fs(char* buf, int len)
         char *p = getcwd(buf, len);
 
         if (p) {
-                char *q = w32ify(buf, 0);
-                strncpy(buf, q, len);
+                char *q = convert_slashes(buf, 0);
+                strlcpy(buf, q, len);
         }
 
         return p;

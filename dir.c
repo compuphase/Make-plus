@@ -60,12 +60,15 @@ const char *vmsify (const char *name, int type);
 #endif /* POSIX */
 
 #ifdef __MSDOS__
-#include <ctype.h>
+# include <ctype.h>
 #include <fcntl.h>
+#if defined(WINDOWS32)
+# include "w32/strlcpy.h"
+#endif
 
 /* If it's MSDOS that doesn't have _USE_LFN, disable LFN support.  */
 #ifndef _USE_LFN
-#define _USE_LFN 0
+# define _USE_LFN 0
 #endif
 
 static const char *
@@ -231,7 +234,7 @@ vmsstat_dir (const char *name, struct stat *st)
 
 #endif /* _USE_STD_STAT */
 #endif /* VMS */
-
+
 /* Hash table of directories.  */
 
 #ifndef DIRECTORY_BUCKETS
@@ -435,7 +438,7 @@ dirfile_hash_cmp (const void *xv, const void *yv)
 #ifndef DIRFILE_BUCKETS
 #define DIRFILE_BUCKETS 107
 #endif
-
+
 static int dir_contents_file_exists_p (struct directory_contents *dir,
                                        const char *filename);
 static struct directory *find_directory (const char *name);
@@ -515,7 +518,7 @@ find_directory (const char *name)
 
           dc_key.dev = st.st_dev;
 #ifdef WINDOWS32
-          dc_key.path_key = w32_path = w32ify (name, 1);
+          dc_key.path_key = w32_path = convert_slashes (name, 1);
           dc_key.ctime = st.st_ctime;
 #else
 # ifdef VMS_INO_T
@@ -597,7 +600,7 @@ find_directory (const char *name)
 
   return dir;
 }
-
+
 /* Return 1 if the name FILENAME is entered in DIR's hash table.
    FILENAME must contain no slashes.  */
 
@@ -770,7 +773,7 @@ dir_file_exists_p (const char *dirname, const char *filename)
   return dir_contents_file_exists_p (find_directory (dirname)->contents,
                                      filename);
 }
-
+
 /* Return 1 if the file named NAME exists.  */
 
 int
@@ -846,7 +849,7 @@ file_exists_p (const char *name)
 #endif
   return dir_file_exists_p (dirname, slash);
 }
-
+
 /* Mark FILENAME as 'impossible' for 'file_impossible_p'.
    This means an attempt has been made to search for FILENAME
    as an intermediate file, and it has failed.  */
@@ -949,7 +952,7 @@ file_impossible (const char *filename)
   new->impossible = 1;
   hash_insert (&dir->contents->dirfiles, new);
 }
-
+
 /* Return nonzero if FILENAME has been marked impossible.  */
 
 int
@@ -1046,7 +1049,7 @@ file_impossible_p (const char *filename)
 
   return 0;
 }
-
+
 /* Return the already allocated name in the
    directory hash table that matches DIR.  */
 
@@ -1055,7 +1058,7 @@ dir_name (const char *dir)
 {
   return find_directory (dir)->name;
 }
-
+
 /* Print the data base of directories.  */
 
 void
@@ -1082,7 +1085,7 @@ print_dir_data_base (void)
           else if (dir->contents->dirfiles.ht_vec == 0)
             {
 #ifdef WINDOWS32
-              printf (_("# %s (key %s, mtime %I64u): could not be opened.\n"),
+              printf (_("# %s (key %s, mtime %" PRIu64 "): could not be opened.\n"),
                       dir->name, dir->contents->path_key,
                       (unsigned long long)dir->contents->mtime);
 #else  /* WINDOWS32 */
@@ -1119,7 +1122,7 @@ print_dir_data_base (void)
                     }
                 }
 #ifdef WINDOWS32
-              printf (_("# %s (key %s, mtime %I64u): "),
+              printf (_("# %s (key %s, mtime %" PRIu64 "): "),
                       dir->name, dir->contents->path_key,
                       (unsigned long long)dir->contents->mtime);
 #else  /* WINDOWS32 */
@@ -1166,7 +1169,7 @@ print_dir_data_base (void)
     printf ("%u", impossible);
   printf (_(" impossibilities in %lu directories.\n"), directories.ht_fill);
 }
-
+
 /* Hooks for globbing.  */
 
 /* Structure describing state of iterating through a directory hash table.  */

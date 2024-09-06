@@ -302,17 +302,14 @@ char *strsignal (int signum);
 
 /* Test if two strings are equal. Is this worthwhile?  Should be profiled.  */
 #define streq(a, b) \
-   ((a) == (b) || \
-    (*(a) == *(b) && (*(a) == '\0' || !strcmp ((a) + 1, (b) + 1))))
+   ((a) == (b) || strcmp ((a), (b)) == 0)
 
 /* Test if two strings are equal, but match case-insensitively on systems
    which have case-insensitive filesystems.  Should only be used for
    filenames!  */
 #ifdef HAVE_CASE_INSENSITIVE_FS
 # define patheq(a, b) \
-    ((a) == (b) \
-     || (tolower((unsigned char)*(a)) == tolower((unsigned char)*(b)) \
-         && (*(a) == '\0' || !strcasecmp ((a) + 1, (b) + 1))))
+    ((a) == (b) || strcasecmp ((a), (b)) == 0)
 #else
 # define patheq(a, b) streq(a, b)
 #endif
@@ -466,7 +463,6 @@ extern struct rlimit stack_limit;
 # define TTYNAME(_f) DEFAULT_TTYNAME
 #endif
 
-
 
 /* Specify the location of elements read from makefiles.  */
 typedef struct

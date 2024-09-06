@@ -15,15 +15,12 @@ rem
 rem You should have received a copy of the GNU General Public License along
 rem with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-echo "Note: Microsoft C/C++ environment needs to be set (vcvarsall.bat)"
-pause
-
 call :Reset
 
 if "%1" == "-h" goto Usage
 if "%1" == "--help" goto Usage
 
-set MAKE=gnumake
+set MAKE=make
 set GUILE=Y
 set COMPILER=msvc
 
@@ -57,6 +54,9 @@ echo Creating GNU Make for Windows 9X/NT/2K/XP/Vista/7/8
 if "%DEBUG%" == "Y" echo Building without compiler optimizations
 
 if "%COMPILER%" == "gcc" goto GccBuild
+
+echo "Note: Microsoft C/C++ environment needs to be set (vcvarsall.bat)"
+pause
 
 set OUTDIR=.\WinRel
 set "OPTS=/O2 /D NDEBUG"
@@ -130,6 +130,7 @@ call :Compile variable
 call :Compile version
 call :Compile vpath
 call :Compile w32\compat\posixfcn
+call :Compile w32\strlcpy
 call :Compile w32\pathstuff
 call :Compile w32\subproc\misc
 call :Compile w32\subproc\sub_proc
@@ -178,7 +179,7 @@ goto :EOF
 :GccLink
 :: GCC Link
 echo on
-gcc -mthreads -gdwarf-2 -g3 -o %OUTDIR%\%MAKE%.exe %OUTDIR%\variable.o %OUTDIR%\rule.o %OUTDIR%\remote-stub.o %OUTDIR%\commands.o %OUTDIR%\file.o %OUTDIR%\getloadavg.o %OUTDIR%\default.o %OUTDIR%\signame.o %OUTDIR%\expand.o %OUTDIR%\dir.o %OUTDIR%\main.o %OUTDIR%\getopt1.o %OUTDIR%\guile.o %OUTDIR%\job.o %OUTDIR%\output.o %OUTDIR%\read.o %OUTDIR%\version.o %OUTDIR%\getopt.o %OUTDIR%\arscan.o %OUTDIR%\remake.o %OUTDIR%\misc.o %OUTDIR%\hash.o %OUTDIR%\strcache.o %OUTDIR%\ar.o %OUTDIR%\function.o %OUTDIR%\vpath.o %OUTDIR%\implicit.o %OUTDIR%\loadapi.o %OUTDIR%\load.o %OUTDIR%\glob\glob.o %OUTDIR%\glob\fnmatch.o %OUTDIR%\w32\pathstuff.o %OUTDIR%\w32\compat\posixfcn.o %OUTDIR%\w32\w32os.o %OUTDIR%\w32\subproc\misc.o %OUTDIR%\w32\subproc\sub_proc.o %OUTDIR%\w32\subproc\w32err.o %GUILELIBS% -lkernel32 -luser32 -lgdi32 -lwinspool -lcomdlg32 -ladvapi32 -lshell32 -lole32 -loleaut32 -luuid -lodbc32 -lodbccp32 -Wl,--out-implib=%OUTDIR%\libgnumake-1.dll.a
+gcc -mthreads -gdwarf-2 -g3 -o %OUTDIR%\%MAKE%.exe %OUTDIR%\variable.o %OUTDIR%\rule.o %OUTDIR%\remote-stub.o %OUTDIR%\commands.o %OUTDIR%\file.o %OUTDIR%\getloadavg.o %OUTDIR%\default.o %OUTDIR%\signame.o %OUTDIR%\expand.o %OUTDIR%\dir.o %OUTDIR%\main.o %OUTDIR%\getopt1.o %OUTDIR%\guile.o %OUTDIR%\job.o %OUTDIR%\output.o %OUTDIR%\read.o %OUTDIR%\version.o %OUTDIR%\getopt.o %OUTDIR%\arscan.o %OUTDIR%\remake.o %OUTDIR%\misc.o %OUTDIR%\hash.o %OUTDIR%\strcache.o %OUTDIR%\ar.o %OUTDIR%\function.o %OUTDIR%\vpath.o %OUTDIR%\implicit.o %OUTDIR%\loadapi.o %OUTDIR%\load.o %OUTDIR%\glob\glob.o %OUTDIR%\glob\fnmatch.o %OUTDIR%\w32\strlcpy.o %OUTDIR%\w32\pathstuff.o %OUTDIR%\w32\compat\posixfcn.o %OUTDIR%\w32\w32os.o %OUTDIR%\w32\subproc\misc.o %OUTDIR%\w32\subproc\sub_proc.o %OUTDIR%\w32\subproc\w32err.o %GUILELIBS% -lkernel32 -luser32 -lgdi32 -lwinspool -lcomdlg32 -ladvapi32 -lshell32 -lole32 -loleaut32 -luuid -lodbc32 -lodbccp32 -Wl,--out-implib=%OUTDIR%\libgnumake-1.dll.a
 @echo off
 goto :EOF
 
