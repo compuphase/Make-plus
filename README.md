@@ -36,7 +36,7 @@ link -o=./bin/hello.exe ./obj/hello.obj
 ```
 When we had written "vpath" instead of ".path", there would not have been "./obj" and "./bin" subdirectories on the command lines.
 
-You can clear the VPATH list by putting no path name on the `vpath` command. For the target-path list, you use the same syntax on the `.path` command. You could set a global `.path` by omitting the pattern (but I do not see the point). You may mix `vpath` and `.path`, but there is probably little use in that.
+You can clear the VPATH list by putting no path name on the `vpath` command. For the target-path list, you use the same syntax on the `.path` command. You could set a global `.path` by omitting the pattern (but I do not see the point). You may mix `vpath` and `.path` for the same extension, but there is probably little use in that.
 
 ## Descriptive aliases for automatic variables
 The predefined variables for targets and prerequisites are cryptic and difficult to remember. This version adds variables with longer (descriptive) names, as an alias for these automatic variables.
@@ -80,17 +80,27 @@ The semantics of `ifdef` have changed to test for whether a macro is defined. Th
 
 To test whether a macro is non-empty, you must now use:
 ```
-ifneq($(var),)
+ifset $(var)
 ...
 endif
 ```
 
-Note that if a macro only contains white-space, it is also considered non-empty. To ignore white-space in the test for emptiness, you can use the `strip` function:
+The inverse, test whether a macro is empty, is done with:
 ```
-ifneq($(strip $(var)),)
+ifclear $(var)
 ...
 endif
 ```
+
+Note that if a macro only contains white-space, it is considered empty.
+
+The `ifset` and `ifclear` directives amounts to the same as using `ifeq` or `ifneq` and setting the second parameter to nothing. For example, `ifset` is equivalent to:
+```
+ifneq($(var),)
+...
+endif
+```
+One detail is that `ifeq` and `ifneq` do not ignore white-space in the evaluation of the macro, whereas `ifset` and `ifclear` do.
 
 ## Other patches
 This version also includes the patches:
