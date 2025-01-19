@@ -38,7 +38,7 @@ struct vpath
     unsigned int patlen;/* Length of the pattern.  */
     const char **searchpath; /* Null-terminated list of directories.  */
     unsigned int maxlen;/* Maximum length of any entry in the list.  */
-    int exclusive;      /* If non-zero, targets are located ONLY in the vpath. */
+    int target_goal;    /* If non-zero, non-existent (target) files are located in the first directory in the vpath. */
   };
 
 /* Linked-list of all selective VPATHs.  */
@@ -162,7 +162,7 @@ build_vpath_lists (void)
    as well.  The new entry will be at the head of the VPATHS chain.  */
 
 void
-construct_vpath_list (char *pattern, char *dirpath, int exclusive)
+construct_vpath_list (char *pattern, char *dirpath, int is_target_path)
 {
   unsigned int elem;
   char *p;
@@ -190,7 +190,7 @@ construct_vpath_list (char *pattern, char *dirpath, int exclusive)
                || (((percent == 0 && path->percent == 0)
                     || (percent - pattern == path->percent - path->pattern))
                    && streq (pattern, path->pattern)))
-              && path->exclusive == exclusive)
+              && path->target_goal == is_target_path)
             {
               /* Remove it from the linked list.  */
               if (lastpath == 0)
@@ -313,7 +313,7 @@ construct_vpath_list (char *pattern, char *dirpath, int exclusive)
       path = xmalloc (sizeof (struct vpath));
       path->searchpath = vpath;
       path->maxlen = maxvpath;
-      path->exclusive = exclusive;
+      path->target_goal = is_target_path;
       path->next = vpaths;
       vpaths = path;
 
@@ -391,7 +391,7 @@ selective_vpath_search (struct vpath *path, const char *file,
   const char *filename;
   const char **vpath = path->searchpath;
   unsigned int maxvpath = path->maxlen;
-  int isexclusive = path->exclusive;
+  int is_target_path = path->target_goal;
   unsigned int i;
   unsigned int flen, name_dplen;
   int exists = 0;
@@ -568,7 +568,7 @@ selective_vpath_search (struct vpath *path, const char *file,
               if (e != 0)
                 {
                   exists = 0;
-                  if (!isexclusive && !is_target)
+                  if (!is_target_path && !is_target)
                     continue;
                 }
 
@@ -594,7 +594,7 @@ selective_vpath_search (struct vpath *path, const char *file,
           DB (DB_VERBOSE, (_(" Relocating '%s' to '%.*s'\n"), file, (p + 1 - name) + flen, name));
           return strcache_add_len (name, (p + 1 - name) + flen);
         }
-      else if (isexclusive && tgt_name == NULL)
+      else if (is_target_path && tgt_name == NULL)
         {
           /* The file does not exist. It is a target path, though, so we save
              the information to the first instance. If no match was found at
@@ -609,8 +609,8 @@ selective_vpath_search (struct vpath *path, const char *file,
 
   if (tgt_name != NULL)
     {
-      assert(tgt_len > 0);  /* the path must be non-empty */
-      assert(isexclusive);  /* the vpath is for targets */
+      assert(tgt_len > 0);    /* the path must be non-empty */
+      assert(is_target_path); /* the vpath is for targets */
 
       if (mtime_ptr != NULL)
         *mtime_ptr = UNKNOWN_MTIME;
@@ -636,6 +636,15 @@ vpath_search (const char *file, FILE_TIMESTAMP *mtime_ptr, int *target_path,
 {
   struct vpath *v;
 
+  if (target_path != NULL)
+    *target_path = 0;
+  if (vpath_index != NULL)
+    {
+      assert(path_index != NULL);
+      *vpath_index = 0;
+      *path_index = 0;
+    }
+
   /* If there are no VPATH entries or FILENAME starts at the root,
      there is nothing we can do.  */
 
@@ -646,26 +655,21 @@ vpath_search (const char *file, FILE_TIMESTAMP *mtime_ptr, int *target_path,
       || (vpaths == NULL && general_vpath == NULL))
     return 0;
 
-  if (target_path != NULL)
-    *target_path = 0;
-  if (vpath_index != NULL)
-    {
-      assert(path_index != NULL);
-      *vpath_index = 0;
-      *path_index = 0;
-    }
-
+  /* First run over the selective vpaths (those matching a pattern), but first
+     ignore the 'target goal' flag on each vpath. This way, when there are
+     multiple vpaths for the same pattern, all will be searched first. */
   for (v = vpaths; v != 0; v = v->next)
     {
-      /* if the pattern ends with a '.' and the file has no extension (it does
-         not have a '.'), also match without the dot in the pattern */
       if (vpath_match (v, file))
         {
+          int save_goal = v->target_goal;
+          v->target_goal = 0;
           const char *p = selective_vpath_search (v, file, mtime_ptr, path_index);
+          v->target_goal = save_goal;
           if (p)
             {
               if (target_path)
-                *target_path = v->exclusive;
+                *target_path = v->target_goal;
               return p;
             }
         }
@@ -674,13 +678,41 @@ vpath_search (const char *file, FILE_TIMESTAMP *mtime_ptr, int *target_path,
         ++*vpath_index;
     }
 
+  /* As a second step, run over the selective vpaths once more, but now consider
+     only the vpaths  with a 'target goal' set. */
+  if (vpath_index != NULL)
+    *vpath_index = *path_index = 0;
+
+  for (v = vpaths; v != 0; v = v->next)
+    {
+      if (v->target_goal && vpath_match (v, file))
+        {
+          const char *p = selective_vpath_search (v, file, mtime_ptr, path_index);
+          if (p)
+            {
+              if (target_path)
+                *target_path = v->target_goal;
+              return p;
+            }
+        }
+
+      if (vpath_index)
+        ++*vpath_index;
+    }
+
+  /* Selective vpaths failed, finally try the global vpath. */
+  if (vpath_index != NULL)
+    *vpath_index = *path_index = 0;
 
   if (general_vpath != NULL)
     {
-      const char *p = selective_vpath_search (
-        general_vpath, file, mtime_ptr, path_index);
+      const char *p = selective_vpath_search (general_vpath, file, mtime_ptr, path_index);
       if (p)
-        return p;
+        {
+          if (target_path)
+            *target_path = general_vpath->target_goal;
+          return p;
+        }
     }
 
   return 0;
@@ -704,7 +736,7 @@ print_vpath_data_base (void)
 
       ++nvpaths;
 
-      if (v->exclusive)
+      if (v->target_goal)
         printf (".path %s ", v->pattern);
       else
         printf ("vpath %s ", v->pattern);
