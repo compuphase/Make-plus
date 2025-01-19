@@ -159,7 +159,6 @@ convert_Path_to_windows32(const char *Path, char delim)
                 enquote = 0;
             }
             size += 1;      /* +1 for delimiter */
-            mark = tgt;
         } else {
             if (*src == '"')
                 instring = !instring;

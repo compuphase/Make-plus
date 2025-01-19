@@ -124,7 +124,6 @@ struct command_switch
         filename,               /* A string containing a file name.  */
         positive_int,           /* A positive integer.  */
         floating,               /* A floating-point number (double).  */
-        ignore                  /* Ignored.  */
       } type;
 
     void *value_ptr;    /* Pointer to the value-holding variable.  */
@@ -335,8 +334,6 @@ static const char *const usage[] =
   {
     N_("Options:\n"),
     N_("\
-  -b, -m                      Ignored for compatibility.\n"),
-    N_("\
   -B, --always-make           Unconditionally make all targets.\n"),
     N_("\
   -C DIRECTORY, --directory=DIRECTORY\n\
@@ -419,7 +416,6 @@ static const char *const usage[] =
 
 static const struct command_switch switches[] =
   {
-    { 'b', ignore, 0, 0, 0, 0, 0, 0, 0 },
     { 'B', flag, &always_make_set, 1, 1, 0, 0, 0, "always-make" },
     { 'd', flag, &debug_flag, 1, 1, 0, 0, 0, 0 },
 #ifdef WINDOWS32
@@ -430,7 +426,6 @@ static const struct command_switch switches[] =
     { 'i', flag, &ignore_errors_flag, 1, 1, 0, 0, 0, "ignore-errors" },
     { 'k', flag, &keep_going_flag, 1, 1, 0, 0, &default_keep_going_flag, "keep-going" },
     { 'L', flag, &check_symlink_flag, 1, 1, 0, 0, 0, "check-symlink-times" },
-    { 'm', ignore, 0, 0, 0, 0, 0, 0, 0 },
     { 'n', flag, &just_print_flag, 1, 1, 1, 0, 0, "just-print" },
     { 'p', flag, &print_data_base_flag, 1, 1, 0, 0, 0, "print-data-base" },
     { 'q', flag, &question_flag, 1, 1, 1, 0, 0, "question" },
@@ -2656,7 +2651,6 @@ init_switches (void)
         {
         case flag:
         case flag_off:
-        case ignore:
           long_options[i].has_arg = no_argument;
           break;
 
@@ -2872,9 +2866,6 @@ decode_switches (int argc, const char **argv, int env)
                 {
                 default:
                   abort ();
-
-                case ignore:
-                  break;
 
                 case flag:
                 case flag_off:
@@ -3172,9 +3163,6 @@ define_makeflags (int all, int makefile)
     if (cs->toenv && (!makefile || !cs->no_makefile))
       switch (cs->type)
         {
-        case ignore:
-          break;
-
         case flag:
         case flag_off:
           if ((!*(int *) cs->value_ptr) == (cs->type == flag_off)
@@ -3386,7 +3374,7 @@ print_version (void)
      word "Copyright"), so it hardly seems worth it.  */
 
   printf ("%sCopyright (C) 1988-2016 Free Software Foundation, Inc.\n"
-          "%sCopyright (c) 2019-2024 CompuPhase\n",
+          "%sCopyright (c) 2019-2025 CompuPhase\n",
           precede, precede);
 
   printf (_("%sLicense GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>\n\

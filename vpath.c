@@ -20,6 +20,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include <assert.h>
 
 #include "makeint.h"
+#include "debug.h"
 #include "filedef.h"
 #include "variable.h"
 #ifdef WINDOWS32
@@ -107,7 +108,7 @@ build_vpath_lists (void)
       vpaths = save_vpaths;
     }
 
-  /* If there is a GPATH variable with a nonnull value, construct the
+  /* If there is a GPATH variable with a non-null value, construct the
      GPATH list from it.  We use variable_expand rather than just
      calling lookup_variable so that it will be recursively expanded.  */
 
@@ -384,7 +385,7 @@ static const char *
 selective_vpath_search (struct vpath *path, const char *file,
                         FILE_TIMESTAMP *mtime_ptr, unsigned int* path_index)
 {
-  int not_target;
+  int is_target;
   char *name;
   const char *n;
   const char *filename;
@@ -402,7 +403,7 @@ selective_vpath_search (struct vpath *path, const char *file,
      files that don't exist but are mentioned in a makefile.  */
   {
     struct file *f = lookup_file (file);
-    not_target = f == 0 || !f->is_target;
+    is_target = (f && f->is_target);
   }
 
   flen = strlen (file);
@@ -505,7 +506,7 @@ selective_vpath_search (struct vpath *path, const char *file,
         struct file *f = lookup_file (name);
         if (f != 0)
           {
-            exists = not_target || f->is_target;
+            exists = !is_target || f->is_target;
             if (exists && mtime_ptr
                 && (f->last_mtime == OLD_MTIME || f->last_mtime == NEW_MTIME))
               {
@@ -567,7 +568,7 @@ selective_vpath_search (struct vpath *path, const char *file,
               if (e != 0)
                 {
                   exists = 0;
-                  if (!isexclusive && not_target)
+                  if (!isexclusive && !is_target)
                     continue;
                 }
 
@@ -590,14 +591,14 @@ selective_vpath_search (struct vpath *path, const char *file,
           if (path_index)
             *path_index = i;
 
+          DB (DB_VERBOSE, (_(" Relocating '%s' to '%.*s'\n"), file, (p + 1 - name) + flen, name));
           return strcache_add_len (name, (p + 1 - name) + flen);
         }
-      else if (isexclusive && !not_target && tgt_name == NULL)
+      else if (isexclusive && tgt_name == NULL)
         {
-          /* The file does not exist in the directory cache, meaning that
-             it was not mentioned in the makefile. It is a target path, though,
-             so we save the information to the first instance. If no match was
-             found at the end of the loop, we use this first path.  */
+          /* The file does not exist. It is a target path, though, so we save
+             the information to the first instance. If no match was found at
+             the end of the loop, we use this first path.  */
           assert(i == 0);
           tgt_len = (p + 1 - name) + flen;
           assert(tgt_len == strlen(name));
@@ -610,12 +611,12 @@ selective_vpath_search (struct vpath *path, const char *file,
     {
       assert(tgt_len > 0);  /* the path must be non-empty */
       assert(isexclusive);  /* the vpath is for targets */
-      assert(!not_target);  /* this must not be a target */
 
       if (mtime_ptr != NULL)
         *mtime_ptr = UNKNOWN_MTIME;
       if (path_index)
         *path_index = 0;
+      DB (DB_VERBOSE, (_(" Relocating '%s' to '%.*s'\n"), file, tgt_len, tgt_name));
       return strcache_add_len (tgt_name, tgt_len);
     }
 
