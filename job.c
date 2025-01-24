@@ -1,5 +1,5 @@
 /* Job execution and handling for GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,11 +12,12 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 
 #include <assert.h>
+#include <string.h>
 
 #include "job.h"
 #include "debug.h"
@@ -25,7 +26,6 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "variable.h"
 #include "os.h"
 
-#include <string.h>
 
 /* Default shell to use.  */
 #ifdef WINDOWS32
@@ -1456,7 +1456,7 @@ start_job_command (struct child *child)
 #ifndef _AMIGA
   /* Set up the environment for the child.  */
   if (child->environment == 0)
-    child->environment = target_environment (child->file);
+    child->environment = target_environment (child->file, child->recursive);
 #endif
 
 #if !defined(__MSDOS__) && !defined(_AMIGA) && !defined(WINDOWS32)
@@ -3283,7 +3283,7 @@ construct_command_argv_internal (char *line, char **restp, const char *shell,
             {
               const char *s = shellflags;
               char *t;
-              unsigned int len;
+              size_t len;
               while ((t = find_next_token (&s, &len)) != 0)
                 new_argv[n++] = xstrndup (t, len);
             }

@@ -12,10 +12,11 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 #include "hash.h"
+#include <assert.h>
 
 #define	CALLOC(t, n) ((t *) xcalloc (sizeof (t) * (n)))
 #define MALLOC(t, n) ((t *) xmalloc (sizeof (t) * (n)))
@@ -43,7 +44,7 @@ hash_init (struct hash_table *ht, unsigned long size,
 {
   ht->ht_size = round_up_2 (size);
   ht->ht_empty_slots = ht->ht_size;
-  ht->ht_vec = (void**) CALLOC (void *, ht->ht_size);
+  ht->ht_vec = CALLOC (void *, ht->ht_size);
   if (ht->ht_vec == 0)
     {
       fprintf (stderr, _("can't allocate %lu bytes for hash table: memory exhausted"),
@@ -95,22 +96,22 @@ hash_find_slot (struct hash_table *ht, const void *key)
       slot = &ht->ht_vec[hash_1];
 
       if (*slot == 0)
-	return (deleted_slot ? deleted_slot : slot);
+        return (deleted_slot ? deleted_slot : slot);
       if (*slot == hash_deleted_item)
-	{
-	  if (deleted_slot == 0)
-	    deleted_slot = slot;
-	}
+        {
+          if (deleted_slot == 0)
+            deleted_slot = slot;
+        }
       else
-	{
-	  if (key == *slot)
-	    return slot;
-	  if ((*ht->ht_compare) (key, *slot) == 0)
-	    return slot;
-	  ht->ht_collisions++;
-	}
+        {
+          if (key == *slot)
+            return slot;
+          if ((*ht->ht_compare) (key, *slot) == 0)
+            return slot;
+          ht->ht_collisions++;
+        }
       if (!hash_2)
-	  hash_2 = (*ht->ht_hash_2) (key) | 1;
+        hash_2 = (*ht->ht_hash_2) (key) | 1;
       hash_1 += hash_2;
     }
 }
@@ -139,7 +140,7 @@ hash_insert_at (struct hash_table *ht, const void *item, const void *slot)
     {
       ht->ht_fill++;
       if (old_item == 0)
-	ht->ht_empty_slots--;
+        ht->ht_empty_slots--;
       old_item = item;
     }
   *(void const **) slot = item;
@@ -182,7 +183,7 @@ hash_free_items (struct hash_table *ht)
     {
       void *item = *vec;
       if (!HASH_VACANT (item))
-	free (item);
+        free (item);
       *vec = 0;
     }
   ht->ht_fill = 0;
@@ -227,7 +228,7 @@ hash_map (struct hash_table *ht, hash_map_func_t map)
   for (slot = ht->ht_vec; slot < end; slot++)
     {
       if (!HASH_VACANT (*slot))
-	(*map) (*slot);
+        (*map) (*slot);
     }
 }
 
@@ -240,7 +241,7 @@ hash_map_arg (struct hash_table *ht, hash_map_arg_func_t map, void *arg)
   for (slot = ht->ht_vec; slot < end; slot++)
     {
       if (!HASH_VACANT (*slot))
-	(*map) (*slot, arg);
+        (*map) (*slot, arg);
     }
 }
 
@@ -259,15 +260,15 @@ hash_rehash (struct hash_table *ht)
       ht->ht_capacity = ht->ht_size - (ht->ht_size >> 4);
     }
   ht->ht_rehashes++;
-  ht->ht_vec = (void **) CALLOC (void *, ht->ht_size);
+  ht->ht_vec = CALLOC (void *, ht->ht_size);
 
   for (ovp = old_vec; ovp < &old_vec[old_ht_size]; ovp++)
     {
       if (! HASH_VACANT (*ovp))
-	{
-	  void **slot = hash_find_slot (ht, *ovp);
-	  *slot = *ovp;
-	}
+        {
+          void **slot = hash_find_slot (ht, *ovp);
+          *slot = *ovp;
+        }
     }
   ht->ht_empty_slots = ht->ht_size - ht->ht_fill;
   free (old_vec);
@@ -276,15 +277,13 @@ hash_rehash (struct hash_table *ht)
 void
 hash_print_stats (struct hash_table *ht, FILE *out_FILE)
 {
-  /* GKM FIXME: honor NO_FLOAT */
-  fprintf (out_FILE, _("Load=%ld/%ld=%.0f%%, "), ht->ht_fill, ht->ht_size,
-	   100.0 * (double) ht->ht_fill / (double) ht->ht_size);
-  fprintf (out_FILE, _("Rehash=%d, "), ht->ht_rehashes);
-  fprintf (out_FILE, _("Collisions=%ld/%ld=%.0f%%"), ht->ht_collisions, ht->ht_lookups,
-	   (ht->ht_lookups
-	    ? (100.0 * (double) ht->ht_collisions / (double) ht->ht_lookups)
-	    : 0));
-	fprintf (out_FILE, "\n");
+  fprintf (out_FILE, _("Load=%lu/%lu=%.0f%%, "), ht->ht_fill, ht->ht_size,
+           100.0 * (double) ht->ht_fill / (double) ht->ht_size);
+  fprintf (out_FILE, _("Rehash=%u, "), ht->ht_rehashes);
+  fprintf (out_FILE, _("Collisions=%lu/%lu=%.0f%%"), ht->ht_collisions, ht->ht_lookups,
+           (ht->ht_lookups
+            ? (100.0 * (double) ht->ht_collisions / (double) ht->ht_lookups)
+            : 0));
 }
 
 /* Dump all items into a NULL-terminated vector.  Use the

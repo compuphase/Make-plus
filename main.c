@@ -1,5 +1,5 @@
 /* Argument parsing and main program of GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 #include "os.h"
@@ -93,7 +93,7 @@ int chdir ();
 #endif
 #ifndef STDC_HEADERS
 # ifndef sun                    /* Sun has an incorrect decl in a header.  */
-void exit (int) __attribute__ ((noreturn));
+void exit (int) NORETURN;
 # endif
 double atof ();
 #endif
@@ -101,8 +101,8 @@ double atof ();
 static void clean_jobserver (int status);
 static void print_data_base (void);
 static void print_version (void);
+static const char* find_switch_param (int argc, const char **argv, char option);
 static void decode_switches (int argc, const char **argv, int env);
-static void decode_env_switches (const char *envar, unsigned int len);
 static void decode_string_switches (const char *options);
 static struct variable *define_makeflags (int all, int makefile);
 static char *quote_for_env (char *out, const char *in);
@@ -126,7 +126,7 @@ struct command_switch
         floating,               /* A floating-point number (double).  */
       } type;
 
-    void *value_ptr;    /* Pointer to the value-holding variable.  */
+    void *value_ptr;            /* Pointer to the value-holding variable.  */
 
     unsigned int env:1;         /* Can come from MAKEFLAGS.  */
     unsigned int toenv:1;       /* Should be put in MAKEFLAGS.  */
@@ -284,22 +284,22 @@ int default_load_average = -1;
 
 /* List of directories given with -C switches.  */
 
-static struct stringlist *directories = 0;
+static struct stringlist *directories = NULL;
 
 /* List of include directories given with -I switches.  */
 
-static struct stringlist *include_directories = 0;
+static struct stringlist *include_directories = NULL;
 
 /* List of files given with -o switches.  */
 
-static struct stringlist *old_files = 0;
+static struct stringlist *old_files = NULL;
 
 /* List of files given with -W switches.  */
 
-static struct stringlist *new_files = 0;
+static struct stringlist *new_files = NULL;
 
 /* List of strings to be eval'd.  */
-static struct stringlist *eval_strings = 0;
+static struct stringlist *eval_strings = NULL;
 
 /* If nonzero, we should just print usage and exit.  */
 
@@ -325,7 +325,7 @@ int rebuilding_makefiles = 0;
 
 struct variable shell_var;
 
-
+
 /* The usage output.  We write it this way to make life easier for the
    translators, especially those trying to translate to right-to-left
    languages like Hebrew.  */
@@ -335,6 +335,9 @@ static const char *const usage[] =
     N_("Options:\n"),
     N_("\
   -B, --always-make           Unconditionally make all targets.\n"),
+    N_("\
+  -c FILE, --config-file=FILE\n\
+                              Use FILE to initialize the configuration.\n"),
     N_("\
   -C DIRECTORY, --directory=DIRECTORY\n\
                               Change to DIRECTORY before doing anything.\n"),
@@ -439,6 +442,7 @@ static const struct command_switch switches[] =
 
     /* These options take arguments.  */
     { 'C', filename, &directories, 0, 0, 0, 0, 0, "directory" },
+    { 'c', string, 0, 0, 0, 0, 0, 0, "config-file" },
     { 'f', filename, &makefiles, 0, 0, 0, 0, 0, "file" },
     { 'I', filename, &include_directories, 1, 1, 0, 0, 0, "include-dir" },
     { 'j', positive_int, &arg_job_slots, 1, 1, 0, &inf_jobs, &default_job_slots, "jobs" },
@@ -638,6 +642,10 @@ initialize_stopchar_map (void)
   stopchar_map[(int)'|'] = MAP_PIPE;
   stopchar_map[(int)'.'] = MAP_DOT | MAP_USERFUNC;
   stopchar_map[(int)','] = MAP_COMMA;
+  stopchar_map[(int)'('] = MAP_VARSEP;
+  stopchar_map[(int)'{'] = MAP_VARSEP;
+  stopchar_map[(int)'}'] = MAP_VARSEP;
+  stopchar_map[(int)')'] = MAP_VARSEP;
   stopchar_map[(int)'$'] = MAP_VARIABLE;
 
   stopchar_map[(int)'-'] = MAP_USERFUNC;
@@ -1075,6 +1083,7 @@ main (int argc, char **argv, char **envp)
   unsigned int restarts = 0;
   unsigned int syncing = 0;
   int argv_slots;
+  int explicit_config;
   const char *config_file_path;
 #ifdef WINDOWS32
   const char *unix_path = NULL;
@@ -1476,13 +1485,25 @@ main (int argc, char **argv, char **envp)
   /* Parse switches from the configuration file.
      There is a catch-22 in the order: the switches on the command line must
      overrule those from the configuration file, so the command line must be
-     parsed after reading the configuration file, but... the command line may
-     contain the switch -R which must disable parsing variables from the
-     configuration file (and therefore, the command line must be parsed for
-     this option before parsing the configuration file).
-     The way it is solved here is to scan the configuration file only for
-     GNUMAKEFLAGS and handle it separately. */
-  config_file_path = read_config (argv[0]);  /* Read configuration file (argv[0] is only used in DOS compile). */
+     parsed _after_ reading the configuration file, but... the command line may
+     contain the switches -R (which disables parsing variables from the
+     configuration file) and -c (which sets the path to the configuration file.
+     Thus, the command line must be parsed _before_ parsing the configuration
+     file.
+     The way it is solved here:
+      1) Scan the command line for the -c option, ignoring any other options.
+      2) Read the configuration file.
+      3) Scan the configuration file GNUMAKEFLAGS; parse the options in it.
+      4) Proceed to decode the switches on the command line.
+      5) If the -R option was set, remove all variables read from the
+         configuration file.
+      */
+
+  config_file_path = find_switch_param(argc, (const char **)argv, 'c');
+  explicit_config = (config_file_path != NULL);
+  if (config_file_path == NULL)
+    config_file_path = find_switch_param(argc, (const char **)argv, 'C');
+  config_file_path = read_config(config_file_path, explicit_config, argv[0]);  /* argv[0] is only used in DOS compile. */
   {
     char *opts = get_default_variable ("GNUMAKEFLAGS");
     if (opts && strlen (opts) > 0)
@@ -2811,6 +2832,23 @@ print_usage (int bad)
   fprintf (usageto, _("Report bugs to <bug-make@gnu.org>\n"));
 }
 
+static const char*
+find_switch_param (int argc, const char **argv, char option)
+{
+  init_switches ();
+  optind = 0; /* Reset getopt's state.  */
+  opterr = 0;
+  while (optind < argc)
+    {
+      int c = getopt_long (argc, (char*const*)argv, options, long_options, NULL);
+      if (c == EOF)
+        break;  /* encountered '--' */
+      if (c == option)
+        return optarg;
+    }
+  return NULL;
+}
+
 /* Decode switches from ARGC and ARGV.
    They came from the environment (or the configuration file) if ENV is
    nonzero.  */
@@ -2869,6 +2907,7 @@ decode_switches (int argc, const char **argv, int env)
 
                 case flag:
                 case flag_off:
+                  assert(cs->value_ptr != NULL);
                   if (doit)
                     *(int *) cs->value_ptr = cs->type == flag;
                   break;
@@ -2900,9 +2939,13 @@ decode_switches (int argc, const char **argv, int env)
 
                   if (cs->type == string)
                     {
-                      char **val = (char **)cs->value_ptr;
-                      free (*val);
-                      *val = xstrdup (coptarg);
+                    if (cs->value_ptr)
+                      {
+                      char **val=(char **)cs->value_ptr;
+                        if (*val)
+                          free(*val);
+                        *val = xstrdup (coptarg);
+                      }
                       break;
                     }
 
@@ -2961,11 +3004,16 @@ decode_switches (int argc, const char **argv, int env)
                           bad = 1;
                         }
                       else
-                        *(unsigned int *) cs->value_ptr = i;
+                        {
+                          assert(cs->value_ptr);
+                          *(unsigned int *) cs->value_ptr = i;
+                        }
                     }
                   else
-                    *(unsigned int *) cs->value_ptr
-                      = *(unsigned int *) cs->noarg_value;
+                    {
+                      assert(cs->value_ptr);
+                      *(unsigned int *) cs->value_ptr = *(unsigned int *) cs->noarg_value;
+                    }
                   break;
 
 #ifndef NO_FLOAT
@@ -2975,9 +3023,10 @@ decode_switches (int argc, const char **argv, int env)
                     coptarg = argv[optind++];
 
                   if (doit)
-                    *(double *) cs->value_ptr
-                      = (coptarg != 0 ? atof (coptarg)
-                         : *(double *) cs->noarg_value);
+                    {
+                      assert(cs->value_ptr);
+                      *(double *) cs->value_ptr = (coptarg != 0 ? atof (coptarg) : *(double *) cs->noarg_value);
+                    }
 
                   break;
 #endif
@@ -3070,8 +3119,8 @@ decode_string_switches (const char *options)
    supposedly an environment variable). The value of the variable is passed
    to decode_string_switches.  */
 
-static void
-decode_env_switches (const char *envar, unsigned int len)
+void
+decode_env_switches (const char *envar, size_t len)
 {
   char *varref = alloca (2 + len + 2);
   char *value;
@@ -3087,7 +3136,7 @@ decode_env_switches (const char *envar, unsigned int len)
   /* Parse the value of the variable.  */
   decode_string_switches (value);
 }
-
+
 /* Quote the string IN so that it will be interpreted as a single word with
    no magic by decode_env_switches; also double dollar signs to avoid
    variable expansion in make itself.  Write the result into OUT, returning
@@ -3165,6 +3214,7 @@ define_makeflags (int all, int makefile)
         {
         case flag:
         case flag_off:
+          assert(cs->value_ptr);
           if ((!*(int *) cs->value_ptr) == (cs->type == flag_off)
               && (cs->default_value == 0
                   || *(int *) cs->value_ptr != *(int *) cs->default_value))
@@ -3172,6 +3222,7 @@ define_makeflags (int all, int makefile)
           break;
 
         case positive_int:
+          assert(cs->value_ptr);
           if (all)
             {
               if ((cs->default_value != 0
@@ -3193,6 +3244,7 @@ define_makeflags (int all, int makefile)
 
 #ifndef NO_FLOAT
         case floating:
+          assert(cs->value_ptr);
           if (all)
             {
               if (cs->default_value != 0
@@ -3216,14 +3268,18 @@ define_makeflags (int all, int makefile)
         case string:
           if (all)
             {
-              p = *((char **)cs->value_ptr);
-              if (p)
-                ADD_FLAG (p, strlen (p));
+            if (cs->value_ptr)
+              {
+                p=*((char **)cs->value_ptr);
+                if (p)
+                  ADD_FLAG (p, strlen (p));
+              }
             }
           break;
 
         case filename:
         case strlist:
+          assert(cs->value_ptr);
           if (all)
             {
               struct stringlist *sl = *(struct stringlist **) cs->value_ptr;

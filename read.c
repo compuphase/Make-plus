@@ -1,5 +1,5 @@
 /* Reading and parsing of makefiles for GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,9 +12,12 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
+
+#include <assert.h>
+
 #include "filedef.h"
 #include "dep.h"
 #include "job.h"
@@ -24,7 +27,6 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "debug.h"
 #include "hash.h"
 
-#include <assert.h>
 
 #ifdef WINDOWS32
 #include <windows.h>
@@ -48,7 +50,7 @@ struct ebuffer
     char *buffer;       /* Start of the current line in the buffer.  */
     char *bufnext;      /* Start of the next line in the buffer.  */
     char *bufstart;     /* Start of the entire buffer.  */
-    unsigned int size;  /* Malloc'd size of buffer. */
+    size_t size;        /* Malloc'd size of buffer. */
     FILE *fp;           /* File, or NULL if this is an internal buffer.  */
     floc floc;          /* Info on the file in fp (if any).  */
   };
@@ -119,7 +121,7 @@ static const char **include_directories;
 
 /* Maximum length of an element of the above.  */
 
-static unsigned int max_incl_len;
+static size_t max_incl_len;
 
 /* The filename and pointer to line number of the
    makefile currently being read in.  */
@@ -184,7 +186,7 @@ read_all_makefiles (const char **makefiles)
   {
     char *value;
     char *name, *p;
-    unsigned int length;
+    size_t length;
 
     {
       /* Turn off --warn-undefined-variables while we expand MAKEFILES.  */
@@ -842,7 +844,7 @@ eval (struct ebuffer *ebuf, int set_default)
             export_all_variables = exporting;
           else
             {
-              unsigned int l;
+              size_t l;
               const char *cp;
               char *ap;
 
@@ -869,7 +871,7 @@ eval (struct ebuffer *ebuf, int set_default)
         {
           const char *cp;
           char *vpat;
-          unsigned int l;
+          size_t l;
           int istarget;
 
           /* distinguish vpath from .path */
@@ -3145,7 +3147,7 @@ tilde_expand (const char *name)
   */
 
 void *
-parse_file_seq (char **stringp, unsigned int size, int stopmap,
+parse_file_seq (char **stringp, size_t size, int stopmap,
                 const char *prefix, int flags)
 {
   /* tmp points to tmpbuf after the prefix, if any.

@@ -1,5 +1,5 @@
 /* Constant string caching for GNU Make.
-Copyright (C) 2006-2016 Free Software Foundation, Inc.
+Copyright (C) 2006-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 
@@ -238,7 +238,7 @@ strcache_add (const char *str)
 }
 
 const char *
-strcache_add_len (const char *str, unsigned int len)
+strcache_add_len (const char *str, size_t len)
 {
   /* If we're not given a nul-terminated string we have to create one, because
      the hashing functions expect it.  */

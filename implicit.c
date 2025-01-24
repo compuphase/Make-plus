@@ -1,5 +1,5 @@
 /* Implicit rule searching for GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,8 +12,9 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
+#include <assert.h>
 #include "makeint.h"
 #include "filedef.h"
 #include "rule.h"
@@ -23,9 +24,15 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include "job.h"      /* struct child, used inside commands.h */
 #include "commands.h" /* set_file_variables */
 
+#if defined(WINDOWS32)
+# include "w32/strlcpy.h"
+#elif defined __linux__
+# include <bsd/string.h>
+#endif
+
 static int pattern_search (struct file *file, int archive,
                            unsigned int depth, unsigned int recursions);
-
+
 /* For a FILE which has no commands specified, try to figure out some
    from the implicit pattern rules.
    Returns 1 if a suitable implicit rule was found,
@@ -151,7 +158,8 @@ struct patdeps
     const char *name;
     const char *pattern;
     struct file *file;
-    unsigned short ignore_mtime : 1;
+    unsigned int ignore_mtime : 1;
+    unsigned int ignore_automatic_vars : 1;
   };
 
 /* This structure stores information about pattern rules that we need
@@ -252,7 +260,7 @@ pattern_search (struct file *file, int archive,
   struct rule *rule;
 
   char *pathdir = NULL;
-  unsigned long pathlen;
+  size_t pathlen;
 
   PATH_VAR (stem_str); /* @@ Need to get rid of stem, stemlen, etc. */
 
@@ -491,16 +499,11 @@ pattern_search (struct file *file, int archive,
           DBS (DB_IMPLICIT, (_("Trying pattern rule with stem '%.*s'.\n"),
                              (int) stemlen, stem));
 
-          strncpy (stem_str, stem, stemlen);
-          stem_str[stemlen] = '\0';
+          strlcpy (stem_str, stem, PATH_MAX);
 
           /* If there are no prerequisites, then this rule matches.  */
           if (rule->deps == 0)
             break;
-
-          /* Temporary assign STEM to file->stem (needed to set file
-             variables below).   */
-          file->stem = stem_str;
 
           /* Mark this rule as in use so a recursive pattern_search won't try
              to use it.  */
@@ -555,6 +558,7 @@ pattern_search (struct file *file, int archive,
                     {
                       ++deps_found;
                       d->ignore_mtime = dep->ignore_mtime;
+                      d->ignore_automatic_vars = dep->ignore_automatic_vars;
                     }
 
                   /* We've used up this dep, so next time get a new one.  */
@@ -625,7 +629,7 @@ pattern_search (struct file *file, int archive,
                   if (!file_vars_initialized)
                     {
                       initialize_file_variables (file, 0);
-                      set_file_variables (file);
+                      set_file_variables (file, stem_str);
                       file_vars_initialized = 1;
                     }
                   /* Update the stem value in $* for this rule.  */
@@ -705,6 +709,7 @@ pattern_search (struct file *file, int archive,
 
                   memset (pat, '\0', sizeof (struct patdeps));
                   pat->ignore_mtime = d->ignore_mtime;
+                  pat->ignore_automatic_vars = d->ignore_automatic_vars;
 
                   DBS (DB_IMPLICIT,
                        (is_rule
@@ -895,6 +900,7 @@ pattern_search (struct file *file, int archive,
 
       dep = alloc_dep ();
       dep->ignore_mtime = pat->ignore_mtime;
+      dep->ignore_automatic_vars = pat->ignore_automatic_vars;
       s = strcache_add (pat->name);
       if (recursions)
         dep->name = s;

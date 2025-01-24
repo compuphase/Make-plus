@@ -1,5 +1,5 @@
 /* Target file management for GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 
@@ -564,7 +564,6 @@ expand_deps (struct file *f)
 {
   struct dep *d;
   struct dep **dp;
-  const char *file_stem = f->stem;
   int initialized = 0;
 
   f->updating = 0;
@@ -608,15 +607,10 @@ expand_deps (struct file *f)
           initialized = 1;
         }
 
-      if (d->stem != 0)
-        f->stem = d->stem;
+      set_file_variables (f, d->stem ? d->stem : f->stem);
 
-      set_file_variables (f);
-
+      /* Perform second expansion.  */
       p = variable_expand_for_file (d->name, f);
-
-      if (d->stem != 0)
-        f->stem = file_stem;
 
       /* At this point we don't need the name anymore: free it.  */
       free (name);

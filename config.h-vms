@@ -217,7 +217,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #define PACKAGE "make"
 
 /* Version of this package (needed by automake) */
-#define VERSION "4.2.1"
+#define VERSION "4.4.1"
 
 /* Define to the name of the SCCS 'get' command.  */
 /* #undef SCCS_GET */

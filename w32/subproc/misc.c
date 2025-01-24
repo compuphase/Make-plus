@@ -1,5 +1,5 @@
 /* Process handling for Windows
-Copyright (C) 1996-2016 Free Software Foundation, Inc.
+Copyright (C) 1996-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <config.h>
 #include <stddef.h>
@@ -36,10 +36,10 @@ int _cdecl compare(const void *a1, const void *a2)
         return _stricoll(*((char**)a1),*((char**)a2));
 }
 bool_t
-arr2envblk(char **arr, char **envblk_out, int *envsize_needed)
+arr2envblk(char **arr, char **envblk_out, size_t *envsize_needed)
 {
         char **tmp;
-        int size_needed;
+        size_t size_needed;
         int arrcnt;
         char *ptr;
 

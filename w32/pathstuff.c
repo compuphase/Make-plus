@@ -1,5 +1,5 @@
 /* Path conversion for Windows pathnames.
-Copyright (C) 1996-2016 Free Software Foundation, Inc.
+Copyright (C) 1996-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <assert.h>
 #include "makeint.h"
@@ -230,13 +230,17 @@ convert_slashes(const char *filename, int resolve)
     char *p;
 
     if (resolve)
-        _fullpath(w32_path, filename, sizeof (w32_path));
+      {
+        char *fp = _fullpath (NULL, filename, sizeof (w32_path));
+        strlcpy (w32_path, fp, sizeof (w32_path) - 1);
+        free (fp);
+      }
     else
-        strlcpy(w32_path, filename, sizeof (w32_path));
+        strlcpy (w32_path, filename, sizeof (w32_path));
 
     for (p = w32_path; p && *p; p++)
-        if (*p == '\\')
-            *p = '/';
+      if (*p == '\\')
+        *p = '/';
 
     return w32_path;
 }
@@ -307,7 +311,7 @@ convert_path_to_nutc(char *path)
         *pathp = '\0';
 
         /*
-         * Loop through PATH and convert one elemnt of the path at at
+         * Loop through PATH and convert one element of the path at at
          * a time. Single file pathnames will fail this and fall
          * to the logic below loop.
          */

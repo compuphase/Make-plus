@@ -1,5 +1,5 @@
 /* Internals of variables for GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,13 +12,14 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 
 #include <assert.h>
 
 #include "filedef.h"
+#include "debug.h"
 #include "dep.h"
 #include "job.h"
 #include "commands.h"
@@ -29,12 +30,15 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #endif
 #include "hash.h"
 
+/* Incremented every time we enter target_environment().  */
+unsigned long long env_recursion = 0;
+
 /* Incremented every time we add or remove a global variable.  */
-static unsigned long variable_changenum;
+static unsigned long variable_changenum = 0;
 
 /* Chain of all pattern-specific variables.  */
 
-static struct pattern_var *pattern_vars;
+static struct pattern_var *pattern_vars = NULL;
 
 /* Pointer to the last struct in the pack of a specific size, from 1 to 255.*/
 
@@ -50,8 +54,8 @@ static struct pattern_var *last_pattern_vars[256];
 struct pattern_var *
 create_pattern_var (const char *target, const char *suffix)
 {
-  register unsigned int len = strlen (target);
-  register struct pattern_var *p = xmalloc (sizeof (struct pattern_var));
+  size_t len = strlen (target);
+  struct pattern_var *p = xcalloc (sizeof (struct pattern_var));
 
   if (pattern_vars != 0)
     {
@@ -63,7 +67,7 @@ create_pattern_var (const char *target, const char *suffix)
       else
         {
           /* Find the position where we can insert this variable. */
-          register struct pattern_var **v;
+          struct pattern_var **v;
 
           for (v = &pattern_vars; ; v = &(*v)->next)
             {
@@ -106,7 +110,7 @@ lookup_pattern_var (struct pattern_var *start, const char *target)
   for (p = start ? start->next : pattern_vars; p != 0; p = p->next)
     {
       const char *stem;
-      unsigned int stemlen;
+      size_t stemlen;
 
       if (p->len > targlen)
         /* It can't possibly match.  */
@@ -193,7 +197,7 @@ init_hash_global_variable_set (void)
    that it should be recursively re-expanded.  */
 
 struct variable *
-define_variable_in_set (const char *name, unsigned int length,
+define_variable_in_set (const char *name, size_t length,
                         const char *value, enum variable_origin origin,
                         int recursive, struct variable_set *set,
                         const floc *flocp)
@@ -212,9 +216,9 @@ define_variable_in_set (const char *name, unsigned int length,
 
 #ifdef VMS
   /* VMS does not populate envp[] with DCL symbols and logical names which
-     historically are mapped to environent variables.
+     historically are mapped to environment variables.
      If the variable is not yet defined, then we need to check if getenv()
-     can find it.  Do not do this for origin == o_env to avoid infinte
+     can find it.  Do not do this for origin == o_env to avoid infinite
      recursion */
   if (HASH_VACANT (v) && (origin != o_env))
     {
@@ -267,7 +271,7 @@ define_variable_in_set (const char *name, unsigned int length,
 
   /* Create a new variable definition and add it to the hash table.  */
 
-  v = xmalloc (sizeof (struct variable));
+  v = xcalloc (sizeof (struct variable));
   v->name = xstrndup (name, length);
   v->length = length;
   hash_insert_at (&set->table, v, var_slot);
@@ -289,8 +293,8 @@ define_variable_in_set (const char *name, unsigned int length,
   v->append = 0;
   v->private_var = 0;
   v->export = v_default;
-
   v->exportable = 1;
+  /* Check the nul-terminated variable name.  */
   if (*name != '_' && (*name < 'A' || *name > 'Z')
       && (*name < 'a' || *name > 'z'))
     v->exportable = 0;
@@ -331,7 +335,7 @@ free_variable_set (struct variable_set_list *list)
 }
 
 void
-undefine_variable_in_set (const char *name, unsigned int length,
+undefine_variable_in_set (const char *name, size_t length,
                           enum variable_origin origin,
                           struct variable_set *set)
 {
@@ -383,13 +387,12 @@ lookup_special_var (struct variable *var)
 {
   static unsigned long last_changenum = 0;
 
-
   /* This one actually turns out to be very hard, due to the way the parser
      records targets.  The way it works is that target information is collected
-     internally until make knows the target is completely specified.  It's not
-     until it sees that some new construct (a new target or variable) is defined
-     that it knows the previous one is done.  In short, this means that if you
-     do this:
+     internally until make knows the target is completely specified.  Only when
+     it sees that some new construct (a new target or variable) is defined does
+     make know that the previous one is done.  In short, this means that if
+     you do this:
 
        all:
 
@@ -411,8 +414,8 @@ lookup_special_var (struct variable *var)
 
   if (variable_changenum != last_changenum && streq (var->name, ".VARIABLES"))
     {
-      unsigned long max = EXPANSION_INCREMENT (strlen (var->value));
-      unsigned long len;
+      size_t max = EXPANSION_INCREMENT (strlen (var->value));
+      size_t len;
       char *p;
       struct variable **vp = (struct variable **) global_variable_set.table.ht_vec;
       struct variable **end = &vp[global_variable_set.table.ht_size];
@@ -432,7 +435,7 @@ lookup_special_var (struct variable *var)
             len += l + 1;
             if (len > max)
               {
-                unsigned long off = p - var->value;
+                size_t off = p - var->value;
 
                 max += EXPANSION_INCREMENT (l + 1);
                 var->value = xrealloc (var->value, max);
@@ -452,19 +455,17 @@ lookup_special_var (struct variable *var)
   return var;
 }
 
-
 /* Lookup a variable whose name is a string starting at NAME
    and with LENGTH chars.  NAME need not be null-terminated.
    Returns address of the 'struct variable' containing all info
    on the variable, or nil if no such variable is defined.  */
 
 struct variable *
-lookup_variable (const char *name, unsigned int length)
+lookup_variable (const char *name, size_t length)
 {
   const struct variable_set_list *setlist;
   struct variable var_key;
   int is_parent = 0;
-  int maybe_argument = 1;
 
   var_key.name = (char *) name;
   var_key.length = length;
@@ -479,50 +480,13 @@ lookup_variable (const char *name, unsigned int length)
       if (v && (!is_parent || !v->private_var))
         return v->special ? lookup_special_var (v) : v;
 
-      /* Variable was not found.  Check if it looks like function call
-         argument: $1,$2,$3...  If it is and we are in the context of user
-         function call, then we must not take arguments of outer functions.  */
-
-      if (setlist->mark == NEXT_IS_PARENT)
-        is_parent = 1;
-      else if (setlist->mark && maybe_argument)
-        {
-          /* Argument $0 is always defined and must be found,
-             names of other arguments do not begin with '0' */
-          if ('0' != *name)
-            {
-              /* Try to parse decimal number.  Check for integer overflow.
-                 If parsing failed or the number is greater or equal to the
-                 maximum number of arguments among calls of user-defined
-                 functions in the call stack, then the variable is not a
-                 function argument.  */
-              int number = 0, a;
-              int m = setlist->mark/10;
-              unsigned int i;
-              for (i = 0; i < length; i++)
-                {
-                  if (!ISDIGIT(name[i]))
-                    break;
-                  if (number > m)
-                    break;
-                  number *= 10;
-                  a = name[i] - '0';
-                  if (a >= setlist->mark - number)
-                    break;
-                  number += a;
-                }
-
-              if (i == length)
-                return 0;
-            }
-
-          maybe_argument = 0;
-        }
+      is_parent |= setlist->next_is_parent;
     }
 
 #ifdef VMS
-  /* VMS does not populate envp[] with DCL symbols and logical names which
-     historically are mapped to enviroment varables and returned by getenv() */
+  /* VMS doesn't populate envp[] with DCL symbols and logical names, which
+     historically are mapped to environment variables and returned by
+     getenv().  */
   {
     char *vname = alloca (length + 1);
     char *value;
@@ -585,7 +549,7 @@ lookup_variable (const char *name, unsigned int length)
    on the variable, or nil if no such variable is defined.  */
 
 struct variable *
-lookup_variable_in_set (const char *name, unsigned int length,
+lookup_variable_in_set (const char *name, size_t length,
                         const struct variable_set *set)
 {
   struct variable var_key;
@@ -595,7 +559,7 @@ lookup_variable_in_set (const char *name, unsigned int length,
 
   return (struct variable *) hash_find_item ((struct hash_table *) &set->table, &var_key);
 }
-
+
 /* Initialize FILE's variable set list.  If FILE already has a variable set
    list, the topmost variable set is left intact, but the the rest of the
    chain is replaced with FILE->parent's setlist.  If FILE is a double-colon
@@ -628,7 +592,7 @@ initialize_file_variables (struct file *file, int reading)
     {
       initialize_file_variables (file->double_colon, reading);
       l->next = file->double_colon->variables;
-      l->mark = 0;
+      l->next_is_parent = 0;
       return;
     }
 
@@ -639,7 +603,7 @@ initialize_file_variables (struct file *file, int reading)
       initialize_file_variables (file->parent, reading);
       l->next = file->parent->variables;
     }
-  l->mark = NEXT_IS_PARENT;
+  l->next_is_parent = 1;
 
   /* If we're not reading makefiles and we haven't looked yet, see if
      we can find pattern variables for this target.  */
@@ -699,20 +663,20 @@ initialize_file_variables (struct file *file, int reading)
   if (file->pat_variables != 0)
     {
       file->pat_variables->next = l->next;
-      file->pat_variables->mark = l->mark;
+      file->pat_variables->next_is_parent = l->next_is_parent;
       l->next = file->pat_variables;
-      l->mark = 0;
+      l->next_is_parent = 0;
     }
 }
-
+
 /* Pop the top set off the current variable set list,
    and free all its storage.  */
 
 struct variable_set_list *
 create_new_variable_set (void)
 {
-  register struct variable_set_list *setlist;
-  register struct variable_set *set;
+  struct variable_set_list *setlist;
+  struct variable_set *set;
 
   set = xmalloc (sizeof (struct variable_set));
   hash_init (&set->table, SMALL_SCOPE_VARIABLE_BUCKETS,
@@ -722,7 +686,7 @@ create_new_variable_set (void)
     xmalloc (sizeof (struct variable_set_list));
   setlist->set = set;
   setlist->next = current_variable_set_list;
-  setlist->mark = 0;
+  setlist->next_is_parent = 0;
 
   return setlist;
 }
@@ -744,11 +708,9 @@ push_new_variable_scope (void)
          pointing to &global  */
       struct variable_set *set = current_variable_set_list->set;
       current_variable_set_list->set = global_setlist.set;
-      current_variable_set_list->next = global_setlist.next;
-      current_variable_set_list->mark = global_setlist.mark;
       global_setlist.set = set;
+      current_variable_set_list->next = global_setlist.next;
       global_setlist.next = current_variable_set_list;
-      global_setlist.mark = 0;
       current_variable_set_list = &global_setlist;
     }
   return (current_variable_set_list);
@@ -779,7 +741,7 @@ pop_variable_scope (void)
       set = global_setlist.set;
       global_setlist.set = setlist->set;
       global_setlist.next = setlist->next;
-      global_setlist.mark = setlist->mark;
+      global_setlist.next_is_parent = setlist->next_is_parent;
     }
 
   /* Free the one we no longer need.  */
@@ -830,22 +792,34 @@ merge_variable_set_lists (struct variable_set_list **setlist0,
   struct variable_set_list *last0 = 0;
 
   /* If there's nothing to merge, stop now.  */
-  if (!setlist1)
+  if (!setlist1 || setlist1 == &global_setlist)
     return;
 
-  /* This loop relies on the fact that all setlists terminate with the global
-     setlist (before NULL).  If that's not true, arguably we SHOULD die.  */
   if (to)
-    while (setlist1 != &global_setlist && to != &global_setlist)
-      {
-        struct variable_set_list *from = setlist1;
-        setlist1 = setlist1->next;
+    {
+      /* These loops rely on the fact that all setlists terminate with the
+         global setlist (before NULL).  If not, arguably we SHOULD die.  */
 
-        merge_variable_sets (to->set, from->set);
+      /* Make sure that setlist1 is not already a subset of setlist0.  */
+      while (to != &global_setlist)
+        {
+          if (to == setlist1)
+            return;
+          to = to->next;
+        }
 
-        last0 = to;
-        to = to->next;
-      }
+      to = *setlist0;
+      while (setlist1 != &global_setlist && to != &global_setlist)
+        {
+          struct variable_set_list *from = setlist1;
+          setlist1 = setlist1->next;
+
+          merge_variable_sets (to->set, from->set);
+
+          last0 = to;
+          to = to->next;
+        }
+    }
 
   if (setlist1 != &global_setlist)
     {
@@ -1018,18 +992,19 @@ define_automatic_variables (void)
   define_variable_cname (".SOURCES,Q",    "$(quote $^)", o_automatic, 1);
   define_variable_cname (".SOURCES+,Q",   "$(quote $+)", o_automatic, 1);
 }
-
+
 int export_all_variables;
 
 /* Create a new environment for FILE's commands.
    If FILE is nil, this is for the 'shell' function.
-   The child's MAKELEVEL variable is incremented.  */
+   The child's MAKELEVEL variable is incremented.
+   If recursive is true then we're running a recursive make, else not.  */
 
 char **
-target_environment (struct file *file)
+target_environment (struct file *file, int recursive)
 {
   struct variable_set_list *set_list;
-  register struct variable_set_list *s;
+  struct variable_set_list *s;
   struct hash_table table;
   struct variable **v_slot;
   struct variable **v_end;
@@ -1037,16 +1012,22 @@ target_environment (struct file *file)
   char **result_0;
   char **result;
 
-  if (file == 0)
-    set_list = current_variable_set_list;
-  else
+  /* If file is NULL we're creating the target environment for $(shell ...)
+     Remember this so we can just ignore recursion.  */
+  if (!file)
+    ++env_recursion;
+
+  if (file)
     set_list = file->variables;
+  else
+    set_list = current_variable_set_list;
 
   hash_init (&table, VARIABLE_BUCKETS,
              variable_hash_1, variable_hash_2, variable_hash_cmp);
 
-  /* Run through all the variable sets in the list,
-     accumulating variables in TABLE.  */
+  /* Run through all the variable sets in the list, accumulating variables
+     in TABLE.  We go from most specific to least, so the first variable we
+     encounter is the keeper.  */
   for (s = set_list; s != 0; s = s->next)
     {
       struct variable_set *set = s->set;
@@ -1055,7 +1036,7 @@ target_environment (struct file *file)
       for ( ; v_slot < v_end; v_slot++)
         if (! HASH_VACANT (*v_slot))
           {
-            struct variable **new_slot;
+            struct variable **evslot;
             struct variable *v = *v_slot;
 
             /* If this is a per-target variable and it hasn't been touched
@@ -1110,9 +1091,9 @@ target_environment (struct file *file)
                 break;
               }
 
-            new_slot = (struct variable **) hash_find_slot (&table, v);
-            if (HASH_VACANT (*new_slot))
-              hash_insert_at (&table, v, new_slot);
+            evslot = (struct variable **) hash_find_slot (&table, v);
+            if (HASH_VACANT (*evslot))
+              hash_insert_at (&table, v, evslot);
           }
     }
 
@@ -1120,7 +1101,7 @@ target_environment (struct file *file)
   makelevel_key.length = MAKELEVEL_LENGTH;
   hash_delete (&table, &makelevel_key);
 
-  result = result_0 = xmalloc ((table.ht_fill + 2) * sizeof (char *));
+  result = result_0 = xmalloc ((table.ht_fill + 3) * sizeof (char *));
 
   v_slot = (struct variable **) table.ht_vec;
   v_end = v_slot + table.ht_size;
@@ -1175,16 +1156,21 @@ target_environment (struct file *file)
 
   hash_free (&table, 0);
 
+  if (!file)
+    --env_recursion;
+
   return result_0;
 }
-
+
 static struct variable *
 set_special_var (struct variable *var)
 {
-  /* If needed, special processing can be done here. */
+  if (streq (var->name, MAKEFLAGS_NAME))
+    decode_env_switches (STRING_SIZE_TUPLE(MAKEFLAGS_NAME));
+
   return var;
 }
-
+
 /* Given a string, shell-execute it and return a malloc'ed string of the
  * result. This removes only ONE newline (if any) at the end, for maximum
  * compatibility with the *BSD makes.  If it fails, returns NULL. */
@@ -1193,7 +1179,7 @@ static char *
 shell_result (const char *p)
 {
   char *buf;
-  unsigned int len;
+  size_t len;
   char *args[2];
   char *result;
 
@@ -1207,7 +1193,7 @@ shell_result (const char *p)
   restore_variable_buffer (buf, len);
   return result;
 }
-
+
 /* Given a variable, a value, and a flavor, define the variable.
    See the try_variable_definition() function for details on the parameters. */
 
@@ -1292,14 +1278,14 @@ do_variable_definition (const floc *flocp, const char *varname,
           {
             /* Paste the old and new values together in VALUE.  */
 
-            unsigned int oldlen, vallen;
+            size_t oldlen, vallen;
             const char *val;
             char *tp = NULL;
 
             val = value;
             if (v->recursive)
               /* The previous definition of the variable was recursive.
-                 The new value is the unexpanded old and new values. */
+                 The new value is the unexpanded old and new values.  */
               flavor = f_recursive;
             else
               /* The previous definition of the variable was simple.
@@ -1462,14 +1448,13 @@ do_variable_definition (const floc *flocp, const char *varname,
   v->conditional = conditional;
 
   free (alloc_value);
-
   return v->special ? set_special_var (v) : v;
 }
-
+
 /* Parse P (a null-terminated string) as a variable definition.
 
    If it is not a variable definition, return NULL and the contents of *VAR
-   are undefined, except NAME is set to the first non-space character or NIL.
+   are undefined, except NAME points to the first non-space character or EOS.
 
    If it is a variable definition, return a pointer to the char after the
    assignment token and set the following fields (only) of *VAR:
@@ -1603,11 +1588,13 @@ parse_variable_definition (const char *p, struct variable *var)
         return NULL;
     }
 
+  /* We found a valid variable assignment: END points to the char after the
+     end of the variable name and P points to the char after the =.  */
   var->length = e - var->name;
   var->value = next_token (p);
   return (char *)p;
 }
-
+
 /* Try to interpret LINE (a null-terminated string) as a variable definition.
 
    If LINE was recognized as a variable definition, a pointer to its 'struct
@@ -1703,8 +1690,9 @@ print_variable (const void *item, void *arg)
       origin = _("'override' directive");
       break;
     case o_invalid:
-    default:
       abort ();
+    default:
+	  assert(0);
     }
   fputs ("# ", stdout);
   fputs (origin, stdout);
@@ -1777,6 +1765,7 @@ print_variable_set (struct variable_set *set, const char *prefix, int pauto)
   fputs (_("# variable set hash-table stats:\n"), stdout);
   fputs ("# ", stdout);
   hash_print_stats (&set->table, stdout);
+  putc ('\n', stdout);
 }
 
 /* Print the data base of variables.  */
@@ -1823,7 +1812,7 @@ print_target_variables (const struct file *file)
 {
   if (file->variables != 0)
     {
-      int l = strlen (file->name);
+      size_t l = strlen (file->name);
       char *t = alloca (l + 3);
 
       strcpy (t, file->name);
@@ -1854,7 +1843,7 @@ sync_Path_environment (void)
   path2 = convert_Path_to_windows32 (path, PATH_SEPARATOR_CHAR);
   if (path2)
     {
-      environ_path = xstrdup (concat(3, "PATH", "=", path));
+      environ_path = xstrdup (concat(3, "PATH", "=", path2));
       putenv (environ_path);
       free (path2);
     }

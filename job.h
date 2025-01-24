@@ -135,11 +135,11 @@ int child_execute_job (struct output *out, int good_stdin, char **argv, char **e
 #endif
 
 #ifdef _AMIGA
-void exec_command (char **argv) __attribute__ ((noreturn));
+void exec_command (char **argv) NORETURN;
 #elif defined(__EMX__)
 int exec_command (char **argv, char **envp);
 #else
-void exec_command (char **argv, char **envp) __attribute__ ((noreturn));
+void exec_command (char **argv, char **envp) NORETURN;
 #endif
 
 extern unsigned int job_slots_used;

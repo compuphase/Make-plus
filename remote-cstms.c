@@ -3,7 +3,7 @@
    Please do not send bug reports or questions about it to
    the Make maintainers.
 
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -16,15 +16,17 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
-#include "filedef.h"
-#include "commands.h"
-#include "job.h"
+#include "commands.h"g
 #include "debug.h"
+#include "filedef.h"
+#include "job.h"
 
-#include <sys/time.h>
+#if HAVE_SYS_TIME_H
+# include <sys/time.h>
+#endif
 #include <netdb.h>
 
 #include "customs.h"
@@ -74,18 +76,11 @@ start_remote_job_p (int first_p)
           return 0;
         }
 
-      /* For secure Customs, make is installed setuid root and
-         Customs requires a privileged source port be used.  */
-      make_access ();
-
       if (ISDB (DB_JOBS))
         Rpc_Debug (1);
 
       /* Ping the daemon once to see if it is there.  */
       inited = Customs_Ping () == RPC_SUCCESS ? 1 : -1;
-
-      /* Return to normal user access.  */
-      user_access ();
 
       if (starting_directory == 0)
         /* main couldn't figure it out.  */
@@ -136,7 +131,7 @@ start_remote_job_p (int first_p)
 
 int
 start_remote_job (char **argv, char **envp, int stdin_fd,
-                  int *is_remote, int *id_ptr, int *used_stdin)
+                  int *is_remote, pid_t *id_ptr, int *used_stdin)
 {
   char waybill[MAX_DATA_SIZE], msg[128];
   struct hostent *host;
@@ -145,7 +140,7 @@ start_remote_job (char **argv, char **envp, int stdin_fd,
   int len;
   int retsock, retport, sock;
   Rpc_Stat status;
-  int pid;
+  pid_t pid;
 
   /* Create the return socket.  */
   retsock = Rpc_UdpCreate (True, 0);
@@ -172,7 +167,7 @@ start_remote_job (char **argv, char **envp, int stdin_fd,
   len = Customs_MakeWayBill (&permit, normalized_cwd, argv[0], argv,
                              envp, retport, waybill);
 
-  /* Modify the waybill as if the remote child had done 'child_access ()'.  */
+  /* Modify the waybill for the child's uid/gid.  */
   {
     WayBill *wb = (WayBill *) waybill;
     wb->ruid = wb->euid;
@@ -232,7 +227,8 @@ start_remote_job (char **argv, char **envp, int stdin_fd,
   else if (pid == 0)
     {
       /* Child side.  Run 'export' to handle the connection.  */
-      static char sock_buf[20], retsock_buf[20], id_buf[20];
+      static char sock_buf[INTSTR_LENGTH+1], retsock_buf[INTSTR_LENGTH+1];
+      static char id_buf[INTSTR_LENGTH+1];
       static char *new_argv[6] =
         { EXPORT_COMMAND, "-id", sock_buf, retsock_buf, id_buf, 0 };
 
@@ -246,7 +242,7 @@ start_remote_job (char **argv, char **envp, int stdin_fd,
         (void) dup2 (stdin_fd, 0);
 
       /* Unblock signals in the child.  */
-      unblock_sigs ();
+      unblock_all_sigs ();
 
       /* Run the command.  */
       exec_command (new_argv, envp);
@@ -294,7 +290,7 @@ unblock_remote_children (void)
 
 /* Send signal SIG to child ID.  Return 0 if successful, -1 if not.  */
 int
-remote_kill (int id, int sig)
+remote_kill (pid_t id, int sig)
 {
   return -1;
 }

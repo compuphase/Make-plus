@@ -1,5 +1,5 @@
 /* dlfcn.h replacement for MS-Windows build.
-Copyright (C) 2013-2016 Free Software Foundation, Inc.
+Copyright (C) 2013-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #ifndef DLFCN_H
 #define DLFCN_H
@@ -22,7 +22,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #define RTLD_GLOBAL 4
 
 extern void *dlopen (const char *, int);
-extern load_func_t dlsym (void *, const char *);
+extern void *dlsym (void *, const char *);
 extern char *dlerror (void);
 extern int   dlclose (void *);
 

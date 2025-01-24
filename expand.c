@@ -1,5 +1,5 @@
 /* Variable expansion functions for GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,15 +12,16 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 
 #include <assert.h>
 
+#include "commands.h"
+#include "debug.h"
 #include "filedef.h"
 #include "job.h"
-#include "commands.h"
 #include "variable.h"
 #include "rule.h"
 
@@ -42,7 +43,7 @@ const floc **expanding_var = &reading_file;
 
 #define VARIABLE_BUFFER_ZONE    5
 
-static unsigned int variable_buffer_length;
+static size_t variable_buffer_length;
 char *variable_buffer;
 
 /* Subroutine of variable_expand and friends:
@@ -53,13 +54,13 @@ char *variable_buffer;
    the following call.  */
 
 char *
-variable_buffer_output (char *ptr, const char *string, unsigned int length)
+variable_buffer_output (char *ptr, const char *string, size_t length)
 {
-  register unsigned int newlen = length + (ptr - variable_buffer);
+  size_t newlen = length + (ptr - variable_buffer);
 
   if ((newlen + VARIABLE_BUFFER_ZONE) > variable_buffer_length)
     {
-      unsigned int offset = ptr - variable_buffer;
+      size_t offset = ptr - variable_buffer;
       variable_buffer_length = (newlen + 100 > 2 * variable_buffer_length
                                 ? newlen + 100
                                 : 2 * variable_buffer_length);
@@ -87,7 +88,7 @@ initialize_variable_output (void)
 
   return variable_buffer;
 }
-
+
 /* Recursively expand V.  The returned string is malloc'd.  */
 
 static char *allocated_variable_append (const struct variable *v);
@@ -100,6 +101,29 @@ recursively_expand_for_file (struct variable *v, struct file *file)
   const floc **saved_varp;
   struct variable_set_list *save = 0;
   int set_reading = 0;
+
+  /* If we're expanding to put into the environment of a shell function then
+     ignore any recursion issues: for backward-compatibility we will use
+     the value of the environment variable we were started with.  */
+  if (v->expanding && env_recursion)
+    {
+      size_t nl = strlen (v->name);
+      char **ep;
+      DB (DB_VERBOSE,
+          (_("%s:%lu: not recursively expanding %s to export to shell function\n"),
+           v->fileinfo.filenm, v->fileinfo.lineno, v->name));
+
+      /* We could create a hash for the original environment for speed, but a
+         reasonably written makefile shouldn't hit this situation...  */
+      for (ep = environ; *ep != 0; ++ep)
+        if ((*ep)[nl] == '=' && strncmp (*ep, v->name, nl) == 0)
+          return xstrdup ((*ep) + nl + 1);
+
+      /* If there's nothing in the parent environment, use the empty string.
+         This isn't quite correct since the variable should not exist at all,
+         but getting that to work would be involved. */
+      return xstrdup ("");
+    }
 
   /* Don't install a new location if this location is empty.
      This can happen for command-line variables, builtin variables, etc.  */
@@ -157,7 +181,7 @@ recursively_expand_for_file (struct variable *v, struct file *file)
 __inline
 #endif
 static char *
-reference_variable (char *o, const char *name, unsigned int length)
+reference_variable (char *o, const char *name, size_t length)
 {
   struct variable *v;
   char *value;
@@ -197,7 +221,7 @@ variable_expand_string (char *line, const char *string, long length)
   const char *p, *p1;
   char *save;
   char *o;
-  unsigned int line_offset;
+  size_t line_offset;
 
   if (!line)
     line = initialize_variable_output ();
@@ -207,7 +231,7 @@ variable_expand_string (char *line, const char *string, long length)
   if (length == 0)
     {
       variable_buffer_output (o, "", 1);
-      return (variable_buffer);
+      return variable_buffer;
     }
 
   /* We need a copy of STRING: due to eval, it's possible that it will get
@@ -224,7 +248,7 @@ variable_expand_string (char *line, const char *string, long length)
 
       p1 = strchr (p, '$');
 
-      o = variable_buffer_output (o, p, p1 != 0 ? (unsigned int)(p1 - p) : strlen (p) + 1);
+      o = variable_buffer_output (o, p, p1 != 0 ? (size_t)(p1 - p) : strlen (p) + 1);
 
       if (p1 == 0)
         break;
@@ -414,7 +438,7 @@ variable_expand_string (char *line, const char *string, long length)
 char *
 variable_expand (const char *line)
 {
-  return variable_expand_string (NULL, line, (long)-1);
+  return variable_expand_string (NULL, line, -1);
 }
 
 /* Expand an argument for an expansion function.
@@ -485,13 +509,13 @@ variable_expand_for_file (const char *line, struct file *file)
    any upper variable sets.  Then expand the resulting value.  */
 
 static char *
-variable_append (const char *name, unsigned int length,
+variable_append (const char *name, size_t length,
                  const struct variable_set_list *set, int local)
 {
   const struct variable *v;
   char *buf = 0;
   /* If this set is local and the next is not a parent, then next is local.  */
-  int nextlocal = local && set->mark != NEXT_IS_PARENT;
+  int nextlocal = local && set->next_is_parent == 0;
 
   /* If there's nothing left to check, return the empty buffer.  */
   if (!set)
@@ -533,7 +557,7 @@ allocated_variable_append (const struct variable *v)
   /* Construct the appended variable value.  */
 
   char *obuf = variable_buffer;
-  unsigned int olen = variable_buffer_length;
+  size_t olen = variable_buffer_length;
 
   variable_buffer = 0;
 
@@ -557,7 +581,7 @@ allocated_variable_expand_for_file (const char *line, struct file *file)
   char *value;
 
   char *obuf = variable_buffer;
-  unsigned int olen = variable_buffer_length;
+  size_t olen = variable_buffer_length;
 
   variable_buffer = 0;
 
@@ -573,7 +597,7 @@ allocated_variable_expand_for_file (const char *line, struct file *file)
    safe-keeping.  */
 
 void
-install_variable_buffer (char **bufp, unsigned int *lenp)
+install_variable_buffer (char **bufp, size_t *lenp)
 {
   *bufp = variable_buffer;
   *lenp = variable_buffer_length;
@@ -586,7 +610,7 @@ install_variable_buffer (char **bufp, unsigned int *lenp)
  */
 
 void
-restore_variable_buffer (char *buf, unsigned int len)
+restore_variable_buffer (char *buf, size_t len)
 {
   free (variable_buffer);
 

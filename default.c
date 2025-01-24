@@ -14,10 +14,8 @@ A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License along with
 this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
-#include "makeint.h"
-
 #include <assert.h>
-
+#include "makeint.h"
 #include "filedef.h"
 #include "variable.h"
 #include "rule.h"
@@ -30,6 +28,9 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 # include <windows.h>
 # include <shlobj.h>
 # include <io.h>
+# include "w32/strlcpy.h"
+#elif defined __linux__
+# include <bsd/string.h>
 #endif
 
 
@@ -84,59 +85,92 @@ static char *collect_commandlines (struct textline *base)
 }
 
 /* Read the make "config" file, with the "built-in" variables, pattern rules
-   and suffix rules. */
+   and suffix rules.
+   If `exclusive` is non-zero, `path` is assumed to contain a full file path,
+   and an error message is issued when it is not present.
+   If `exlusive` is zero and `path` is not `NULL`, it is assumed to be a
+   directory only; no warning is issued if no configuration file is found in
+   this directory. */
 const char *
-read_config (char *argv0)
+read_config (const char *path, int exclusive, const char *argv0)
 {
   static PATH_VAR(cfgfile);
   char *ptr, *line;
   FILE *fcfg;
   struct textline *item, *tail;
 
-  /* First try current directory. */
   cfgfile[0] = '\0';
-  if (getcwd (cfgfile, sizeof cfgfile) != NULL) {
-    #if defined(__MSDOS__)
-      strcat (cfgfile, "\\make.cfg");
-    #else
-      strcat (cfgfile, "\\make.conf");
-    #endif
-  }
+
+  /* If specific path is set, use only that */
+  if (path != NULL)
+    {
+      if (exclusive)
+        {
+          strlcpy(cfgfile, path, sizeof(cfgfile));
+          if (access (cfgfile, 0) != 0)
+              OS (error, NILF,
+                  _("warning:  Configuration file '%s' is not found."), cfgfile);
+        }
+      else
+        {
+          strlcpy(cfgfile, path, sizeof(cfgfile));
+          if ((ptr = strrchr(cfgfile, DIRSEP_C)) == NULL || *(ptr + 1) != '\0')
+            strlcat (cfgfile, DIRSEP_S, sizeof cfgfile);
+#         if defined(__MSDOS__)
+            strlcat (cfgfile, "make.cfg", sizeof cfgfile);
+#         else
+            strlcat (cfgfile, "make.conf", sizeof cfgfile);
+#         endif
+        }
+    }
+
+  /* First try current directory. */
+  if (access (cfgfile, 0) != 0)
+    {
+      if (getcwd (cfgfile, sizeof cfgfile) != NULL)
+        {
+#         if defined(__MSDOS__)
+            strlcat (cfgfile, DIRSEP_S "make.cfg", sizeof cfgfile);
+#         else
+            strlcat (cfgfile, DIRSEP_S "make.conf", sizeof cfgfile);
+#         endif
+        }
+    }
 
   /* Then try the current user's home directory (or the application data folder
      under Windows). */
   if (access (cfgfile, 0) != 0)
     {
-#if defined(__MSDOS__)
-      /* There is no user directory under DOS. */
-#elif defined(WINDOWS32)
-      if (SHGetFolderPathA (NULL, CSIDL_APPDATA, NULL, 0, cfgfile) == S_OK)
-        strcat (cfgfile, "\\make.conf");
-#else
-      if ((ptr = getenv ("HOME")) != NULL)
-        {
-          strcpy (cfgfile, ptr);
-          strcat (cfgfile, "/make.conf");
-        }
-#endif
+#     if defined(__MSDOS__)
+        /* There is no user directory under DOS. */
+#     elif defined(WINDOWS32)
+        if (SHGetFolderPathA (NULL, CSIDL_APPDATA, NULL, 0, cfgfile) == S_OK)
+          strlcat (cfgfile, DIRSEP_S "make.conf", sizeof cfgfile);
+#     else
+        if ((ptr = getenv ("HOME")) != NULL)
+          {
+            strlcpy (cfgfile, ptr, sizeof cfgfile);
+            strlcat (cfgfile, DIRSEP_S "make.conf", sizeof cfgfile);
+          }
+#     endif
     }
 
   /* Finally try /etc (or the executable's directory under Windows) */
   if (access (cfgfile, 0) != 0)
     {
-#if defined(__MSDOS__)
-      strcpy (cfgfile, argv0);
-      ptr = strrchr (cfgfile, '\\');
-      if (ptr != NULL)
-        strcpy (ptr + 1, "make.cfg");
-#elif defined(WINDOWS32)
-      GetModuleFileName (NULL, cfgfile, GET_PATH_MAX);
-      ptr = strrchr (cfgfile, '\\');
-      if (ptr != NULL)
-        strcpy (ptr + 1, "make.conf");
-#else
-      strcpy (cfgfile, "/etc/make.conf");
-#endif
+#     if defined(__MSDOS__)
+        strlcpy (cfgfile, argv0, sizeof cfgfile);
+        ptr = strrchr (cfgfile, DIRSEP_C);
+        if (ptr != NULL)
+          strlcpy (ptr + 1, "make.cfg", sizeof cfgfile - (ptr - cfgfile) - 1);
+#     elif defined(WINDOWS32)
+        GetModuleFileName (NULL, cfgfile, GET_PATH_MAX);
+        ptr = strrchr (cfgfile, DIRSEP_C);
+        if (ptr != NULL)
+          strlcpy (ptr + 1, "make.conf", sizeof cfgfile - (ptr - cfgfile) - 1);
+#     else
+        strlcpy (cfgfile, "/etc/make.conf", sizeof cfgfile);
+#     endif
     }
 
   if (access (cfgfile, 0) != 0)

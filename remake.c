@@ -1622,7 +1622,7 @@ library_search (const char *lib, FILE_TIMESTAMP *mtime_ptr)
   /* Loop variables for the libpatterns value.  */
   char *p;
   const char *p2;
-  unsigned int len;
+  size_t len;
   unsigned int liblen;
 
   /* Information about the earliest (in the vpath sequence) match.  */

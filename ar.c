@@ -1,5 +1,5 @@
 /* Interface to 'ar' archives for GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 
 This file is part of GNU Make.
 
@@ -13,7 +13,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 
@@ -21,6 +21,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 
 #include "filedef.h"
 #include "dep.h"
+#include <assert.h>
 #include <fnmatch.h>
 
 /* Return nonzero if NAME is an archive-member reference, zero if not.  An
@@ -35,7 +36,7 @@ ar_name (const char *name)
   const char *p = strchr (name, '(');
   const char *end;
 
-  if (p == 0 || p == name)
+  if (p == NULL || p == name)
     return 0;
 
   end = p + strlen (p) - 1;
@@ -60,6 +61,7 @@ ar_parse_name (const char *name, char **arname_p, char **memname_p)
 
   *arname_p = xstrdup (name);
   p = strchr (*arname_p, '(');
+  assert(p);    /* This is never called unless ar_name() is true so p cannot be NULL.  */
   *(p++) = '\0';
   p[strlen (p) - 1] = '\0';
   *memname_p = p;
@@ -186,7 +188,7 @@ struct ar_glob_state
 #ifdef VMS
     char *suffix;
 #endif
-    unsigned int size;
+    size_t size;
     struct nameseq *chain;
     unsigned int n;
   };
@@ -218,7 +220,7 @@ ar_glob_match (int desc UNUSED, const char *mem, int truncated UNUSED,
       ++state->n;
     }
 
-  return 0L;
+  return 0;
 }
 
 /* Return nonzero if PATTERN contains any metacharacters.
@@ -258,7 +260,7 @@ ar_glob_pattern_p (const char *pattern, int quote)
    Return a malloc'd chain of matching elements (or nil if none).  */
 
 struct nameseq *
-ar_glob (const char *arname, const char *member_pattern, unsigned int size)
+ar_glob (const char *arname, const char *member_pattern, size_t size)
 {
   struct ar_glob_state state;
   struct nameseq *n;
@@ -308,7 +310,7 @@ ar_glob (const char *arname, const char *member_pattern, unsigned int size)
     return 0;
 
   /* Now put the names into a vector for sorting.  */
-  names = (const char**)alloca (state.n * sizeof (const char *));
+  names = alloca (state.n * sizeof (const char *));
   i = 0;
   for (n = state.chain; n != 0; n = n->next)
     names[i++] = n->name;

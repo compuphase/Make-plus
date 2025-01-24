@@ -1,5 +1,5 @@
 # Make+
-This is a forked version of GNU 4.2.1 make with a few additions and changes to enhance its ease of use. Several of these changes are inspired by Opus Make version 6.12 from 1998. In adding these features to GNU Make, I have come to appreciate how advanced Opus Make was 25 years ago.
+This is a forked version of GNU 4.2.1 Make with a few additions and changes to enhance its ease of use. Several of these changes are inspired by Opus Make version 6.12 from 1998. In adding these features to GNU Make, I have come to appreciate how advanced Opus Make was 25 years ago. After the fork, GNU Make has had releases 4.3 and 4.4; the user-visible changes of these releases have been merged to Make+.
 
 ## A recipe starts with an indent of 4 spaces or a TAB character
 Any combination of white-space that gives a visible indentation of four spaces or more, is valid for a recipe line (a shell line below a rule). Existing makefiles (that use TABs) still work; one or more spaces followed by a TAB is fine too. The [Wiki](../../wiki/Rationale-for-the-recipe-prefix) has further motivation for changing the recipe prefix.
@@ -70,6 +70,8 @@ The built-in pattern rules, suffix rules and variable/macro definition are store
 The configuration file uses a subset of the syntax for makefiles. Essentially, it supports definitions of pattern rules, suffix rules and macros that are set with the `=` or `:=` operators.
 
 A few standard configurations are provided in the `configfiles` directory of this repository. These configurations were extracted from the GNU Make source code. To use one of these configurations, rename the respective file to `make.conf` and place it in the appropriate location.
+
+Make+ searches for a configuration file in the current directory, the user's "home" directory, and in a system path (in that order). The system path is `/etc` on Unix-like systems, and the same path as where the `make` executable is on Microsoft Windows. Furthermore, it supports the `-c` option (`--config-file`) to select a configuragion file explicitly, and the `-C` option (`--directory`) is also handled to set a location to load the configuration file from.
 
 Without a `make.conf` file, `make` still runs fine. You will have no built-in rules or macros, though. (You may actually prefer to use only explicit rules and macros in your makefile).
 

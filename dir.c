@@ -1,5 +1,5 @@
 /* Directory hashing for GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,12 +12,13 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 #include "hash.h"
 #include "filedef.h"
 #include "dep.h"
+#include "debug.h"
 
 #ifdef  HAVE_DIRENT_H
 # include <dirent.h>
@@ -58,18 +59,14 @@ const char *vmsify (const char *name, int type);
 # define REAL_DIR_ENTRY(dp) (dp->d_ino != 0)
 # define FAKE_DIR_ENTRY(dp) (dp->d_ino = 1)
 #endif /* POSIX */
-
+
 #ifdef __MSDOS__
 # include <ctype.h>
-#include <fcntl.h>
-#if defined(WINDOWS32)
-# include "w32/strlcpy.h"
-#endif
-
+# include <fcntl.h>
 /* If it's MSDOS that doesn't have _USE_LFN, disable LFN support.  */
-#ifndef _USE_LFN
-# define _USE_LFN 0
-#endif
+# ifndef _USE_LFN
+#   define _USE_LFN 0
+# endif
 
 static const char *
 dosify (const char *filename)
@@ -113,7 +110,8 @@ dosify (const char *filename)
 #endif /* __MSDOS__ */
 
 #ifdef WINDOWS32
-#include "pathstuff.h"
+# include "pathstuff.h"
+# include "w32/strlcpy.h"
 #endif
 
 #ifdef _AMIGA
@@ -178,7 +176,7 @@ vms_hash (const char *name)
 
   while (*name)
     {
-      unsigned char uc = *name;
+      unsigned char uc = (unsigned char) *name;
       int g;
 #ifdef HAVE_CASE_INSENSITIVE_FS
       h = (h << 4) + (isupper (uc) ? tolower (uc) : uc);
@@ -366,7 +364,7 @@ static struct hash_table directory_contents;
 
 struct directory
   {
-    const char *name;                   /* Name of the directory.  */
+    const char *name;           /* Name of the directory.  */
 
     /* The directory's contents.  This data may be shared by several
        entries in the hash table, which refer to the same directory
@@ -459,36 +457,37 @@ find_directory (const char *name)
   if (HASH_VACANT (dir))
     {
       /* The directory was not found.  Create a new entry for it.  */
-      const char *p = name + strlen (name);
       struct stat st;
       int r;
+      size_t len = strlen (name);
 
       dir = xmalloc (sizeof (struct directory));
 #if defined(HAVE_CASE_INSENSITIVE_FS) && defined(VMS)
       /* Todo: Why is this only needed on VMS? */
       {
         char *lname = downcase_inplace (xstrdup (name));
-        dir->name = strcache_add_len (lname, p - name);
+        dir->name = strcache_add_len (lname, len);
         free (lname);
       }
 #else
-      dir->name = strcache_add_len (name, p - name);
+      dir->name = strcache_add_len (name, len);
 #endif
       hash_insert_at (&directories, dir, dir_slot);
+
       /* The directory is not in the name hash table.
          Find its device and inode numbers, and look it up by them.  */
 
 #if defined(WINDOWS32)
       {
-        char tem[MAXPATHLEN], *tstart, *tend;
+        char tem[MAX_PATH+1], *tstart, *tend;
 
         /* Remove any trailing slashes.  Windows32 stat fails even on
            valid directories if they end in a slash. */
-        memcpy (tem, name, p - name + 1);
+        strlcpy (tem, name, MAX_PATH);
         tstart = tem;
         if (tstart[1] == ':')
           tstart += 2;
-        for (tend = tem + (p - name - 1);
+        for (tend = tem + (len - 1);
              tend > tstart && (*tend == '/' || *tend == '\\');
              tend--)
           *tend = '\0';
@@ -690,7 +689,7 @@ dir_contents_file_exists_p (struct directory_contents *dir,
   while (1)
     {
       /* Enter the file in the hash table.  */
-      unsigned int len;
+      size_t len;
       struct dirfile dirfile_key;
       struct dirfile **dirfile_slot;
 
@@ -733,6 +732,9 @@ dir_contents_file_exists_p (struct directory_contents *dir,
           df->name = strcache_add_len (downcase_inplace (d->d_name), len);
 #else
           df->name = strcache_add_len (d->d_name, len);
+#endif
+#if defined(HAVE_STRUCT_DIRENT_D_TYPE)
+          df->type = d->d_type;
 #endif
           df->length = len;
           df->impossible = 0;
@@ -1132,8 +1134,7 @@ print_dir_data_base (void)
                       dir->contents->ino[0], dir->contents->ino[1],
                       dir->contents->ino[2]);
 #else
-              printf (_("# %s (device %ld, inode %ld): "),
-                      dir->name,
+              printf (_("# %s (device %ld, inode %ld): "), dir->name,
                       (long)dir->contents->dev, (long)dir->contents->ino);
 #endif
 #endif /* WINDOWS32 */
@@ -1211,7 +1212,7 @@ static struct dirent *
 read_dirstream (__ptr_t stream)
 {
   static char *buf;
-  static unsigned int bufsz;
+  static size_t bufsz;
 
   struct dirstream *const ds = (struct dirstream *) stream;
   struct directory_contents *dc = ds->contents;
@@ -1224,8 +1225,8 @@ read_dirstream (__ptr_t stream)
         {
           /* The glob interface wants a 'struct dirent', so mock one up.  */
           struct dirent *d;
-          unsigned int len = df->length + 1;
-          unsigned int sz = sizeof (*d) - sizeof (d->d_name) + len;
+          size_t len = df->length + 1;
+          size_t sz = sizeof (*d) - sizeof (d->d_name) + len;
           if (sz > bufsz)
             {
               bufsz *= 2;
@@ -1244,8 +1245,8 @@ read_dirstream (__ptr_t stream)
 #ifdef _DIRENT_HAVE_D_NAMLEN
           d->d_namlen = len - 1;
 #endif
-#ifdef _DIRENT_HAVE_D_TYPE
-          d->d_type = DT_UNKNOWN;
+#ifdef HAVE_STRUCT_DIRENT_D_TYPE
+          d->d_type = df->type;
 #endif
           memcpy (d->d_name, df->name, len);
           return d;

@@ -1,5 +1,5 @@
 /* VMS functions
-Copyright (C) 1996-2016 Free Software Foundation, Inc.
+Copyright (C) 1996-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 #include "debug.h"
@@ -149,7 +149,7 @@ vms_command(const char* argv0)
    If something goes wrong in sys$parse (unlikely, this is a VMS/CRTL supplied
    file specification) or if there is an empty name part (not easy to produce,
    but it is possible) just return "make".
-   Somes notes ...
+   Some notes ...
    NAM[L]$M_SYNCHK requests a syntax check, only.
    NAM is for ODS2 names (shorter parts, output usually converted to UPPERCASE).
    NAML is for ODS2/ODS5 names (longer parts, output unchanged).

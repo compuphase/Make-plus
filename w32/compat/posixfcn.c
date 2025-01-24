@@ -1,6 +1,6 @@
 /* Replacements for Posix functions and Posix functionality for MS-Windows.
 
-Copyright (C) 2013-2016 Free Software Foundation, Inc.
+Copyright (C) 2013-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -13,11 +13,9 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-#ifdef	HAVE_CONFIG_H
-# include <config.h>
-#endif
+#include "makeint.h"
 
 #include <string.h>
 #include <io.h>
@@ -25,7 +23,6 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include <errno.h>
 #include <windows.h>
 
-#include "makeint.h"
 #include "dlfcn.h"
 #include "job.h"
 
@@ -368,7 +365,6 @@ tmpfile (void)
 
 /* Support for dynamic loading of objects.  */
 
-
 static DWORD last_err;
 
 void *
@@ -425,7 +421,7 @@ dlerror (void)
   return errbuf;
 }
 
-load_func_t
+void *
 dlsym (void *handle, const char *name)
 {
   FARPROC addr = NULL;
@@ -440,7 +436,7 @@ dlsym (void *handle, const char *name)
   if (!addr)
     last_err = GetLastError ();
 
-  return (load_func_t)addr;
+  return (void *)addr;
 }
 
 int

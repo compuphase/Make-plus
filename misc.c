@@ -1,5 +1,5 @@
 /* Miscellaneous generic support functions for GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 #include "filedef.h"
@@ -194,7 +194,6 @@ concat (unsigned int num, ...)
 
   return result;
 }
-
 
 #ifndef HAVE_STRERROR
 #undef  strerror
@@ -214,7 +213,16 @@ strerror (int errnum)
   return buf;
 }
 #endif
-
+
+#ifndef HAVE_UNISTD_H
+  pid_t getpid (void);
+#endif
+
+pid_t make_pid (void)
+{
+  return getpid ();
+}
+
 /* Like malloc but get fatal error if memory is exhausted.  */
 /* Don't bother if we're using dmalloc; it provides these for us.  */
 
@@ -226,7 +234,7 @@ strerror (int errnum)
 #undef xstrdup
 
 void *
-xmalloc (unsigned int size)
+xmalloc (size_t size)
 {
   /* Make sure we don't allocate 0, for pre-ISO implementations.  */
   void *result = malloc (size ? size : 1);
@@ -237,7 +245,7 @@ xmalloc (unsigned int size)
 
 
 void *
-xcalloc (unsigned int size)
+xcalloc (size_t size)
 {
   /* Make sure we don't allocate 0, for pre-ISO implementations.  */
   void *result = calloc (size ? size : 1, 1);
@@ -248,7 +256,7 @@ xcalloc (unsigned int size)
 
 
 void *
-xrealloc (void *ptr, unsigned int size)
+xrealloc (void *ptr, size_t size)
 {
   void *result;
 
@@ -286,7 +294,7 @@ xstrdup (const char *ptr)
 #endif  /* HAVE_DMALLOC_H */
 
 char *
-xstrndup (const char *str, unsigned int length)
+xstrndup (const char *str, size_t length)
 {
   char *result;
 
@@ -326,7 +334,8 @@ lindex (const char *s, const char *limit, int c)
 char *
 end_of_token (const char *s)
 {
-  END_OF_TOKEN (s);
+  while (!STOP_SET (*s, MAP_SPACE|MAP_NUL))
+    ++s;
   return (char *)s;
 }
 
@@ -344,7 +353,7 @@ next_token (const char *s)
    of the token, so this function can be called repeatedly in a loop.  */
 
 char *
-find_next_token (const char **ptr, unsigned int *lengthptr)
+find_next_token (const char **ptr, size_t *lengthptr)
 {
   char *p;
 
@@ -365,10 +374,10 @@ find_next_token (const char **ptr, unsigned int *lengthptr)
    escaped space characters. */
 
 char *
-find_next_token_path (const char **ptr, unsigned int *lengthptr)
+find_next_token_path (const char **ptr, size_t *lengthptr)
 {
   char *p;
-  unsigned int len;
+  size_t len;
 
   assert(ptr != NULL);
   p = find_next_token (ptr, &len);
@@ -379,7 +388,7 @@ find_next_token_path (const char **ptr, unsigned int *lengthptr)
   while (len > 0 && p[len - 1] == '\\' && p[len] == ' ')
     {
       /* An escaped space */
-      unsigned int len2;
+      size_t len2;
       if (find_next_token (ptr, &len2) == NULL)
         break;
       len += len2 + 1;

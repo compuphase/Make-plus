@@ -92,19 +92,19 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #define PACKAGE_NAME "GNU make"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "GNU make 4.2.1"
+#define PACKAGE_STRING "GNU make 4.4.1"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "make"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "4.2.1"
+#define PACKAGE_VERSION "4.4.1"
 
 /* Output sync sypport */
 #define NO_OUTPUT_SYNC
 
 /* Version number of package */
-#define VERSION "4.2.1"
+#define VERSION "4.4.1"
 
 /* Build host information. */
 #define MAKE_HOST "i386-pc-msdosdjgpp"

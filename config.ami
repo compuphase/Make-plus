@@ -177,7 +177,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #define PACKAGE "make"
 
 /* Version of this package (needed by automake) */
-#define VERSION "4.2.1"
+#define VERSION "4.4.1"
 
 /* Define to the name of the SCCS 'get' command.  */
 #define SCCS_GET "get"
@@ -327,10 +327,10 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 /* Define if you have the sun library (-lsun).  */
 /* #undef HAVE_LIBSUN */
 
-/* Output sync sypport */
+/* Output sync support */
 #define NO_OUTPUT_SYNC
 
-/* Define for Case Insensitve behavior */
+/* Define for Case Insensitive behavior */
 #define HAVE_CASE_INSENSITIVE_FS
 
 /* Build host information. */

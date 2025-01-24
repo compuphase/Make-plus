@@ -1,5 +1,5 @@
 /* Definitions for using variables in GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "hash.h"
 
@@ -35,10 +35,20 @@ enum variable_flavor
     f_bogus,            /* Bogus (error) */
     f_simple,           /* Simple definition (:= or ::=) */
     f_recursive,        /* Recursive definition (=) */
+    f_expand,           /* POSIX :::= assignment */
     f_append,           /* Appending definition (+=) */
     f_conditional,      /* Conditional definition (?=) */
-    f_shell             /* Shell assignment (!=) */
+    f_shell,            /* Shell assignment (!=) */
+    f_append_value      /* Append unexpanded value */
   };
+
+enum variable_export
+{
+    v_default = 0,      /* Decide in target_environment.  */
+    v_export,           /* Export this variable.  */
+    v_noexport,         /* Don't export this variable.  */
+    v_ifset             /* Export it if it has a non-default value.  */
+};
 
 /* Structure that represents one variable definition.
    Each bucket of the hash table is a chain of these,
@@ -52,7 +62,7 @@ struct variable
     char *name;                 /* Variable name.  */
     char *value;                /* Variable value.  */
     floc fileinfo;              /* Where the variable was defined.  */
-    int length;                 /* strlen (name) */
+    unsigned int length;        /* strlen (name) */
     unsigned int recursive:1;   /* Gets recursively re-evaluated.  */
     unsigned int append:1;      /* Nonzero if an appending target-specific variable.  */
     unsigned int conditional:1; /* Nonzero if set with a ?=. */
@@ -69,12 +79,7 @@ struct variable
     enum variable_origin
       origin ENUM_BITFIELD (3); /* Variable origin.  */
     enum variable_export
-      {
-        v_export,               /* Export this variable.  */
-        v_noexport,             /* Don't export this variable.  */
-        v_ifset,                /* Export it if it has a non-default value.  */
-        v_default               /* Decide in target_environment.  */
-      } export ENUM_BITFIELD (2);
+      export ENUM_BITFIELD (2); /* Export control. */
   };
 
 /* Structure that represents a variable set.  */
@@ -90,19 +95,7 @@ struct variable_set_list
   {
     struct variable_set_list *next;     /* Link in the chain.  */
     struct variable_set *set;           /* Variable set.  */
-
-    /* Mark of the list:
-      -1 - next is a parent target;
-       0 - list is not marked;
-      >0 - variable set of the list contains arguments of user-defined function
-           call.  Mark value - is the maximum number of arguments among calls
-           of user-defined functions in the call stack up to and including this
-           list.  Function name (passed as $0 argument) is always counted, so
-           number of arguments cannot be zero.  */
-
-#define NEXT_IS_PARENT -1
-
-    int mark;
+    int next_is_parent;                 /* True if next is a parent target.  */
   };
 
 /* Structure used for pattern-specific variables.  */
@@ -112,17 +105,18 @@ struct pattern_var
     struct pattern_var *next;
     const char *suffix;
     const char *target;
-    unsigned int len;
+    size_t len;
     struct variable variable;
   };
 
+extern unsigned long long env_recursion;
 extern char *variable_buffer;
 extern struct variable_set_list *current_variable_set_list;
 extern struct variable *default_goal_var;
 extern struct variable shell_var;
 
 /* expand.c */
-char *variable_buffer_output (char *ptr, const char *string, unsigned int length);
+char *variable_buffer_output (char *ptr, const char *string, size_t length);
 char *variable_expand (const char *line);
 char *variable_expand_for_file (const char *line, struct file *file);
 char *allocated_variable_expand_for_file (const char *line, struct file *file);
@@ -130,14 +124,14 @@ char *allocated_variable_expand_for_file (const char *line, struct file *file);
   allocated_variable_expand_for_file (line, (struct file *) 0)
 char *expand_argument (const char *str, const char *end);
 char *variable_expand_string (char *line, const char *string, long length);
-void install_variable_buffer (char **bufp, unsigned int *lenp);
-void restore_variable_buffer (char *buf, unsigned int len);
+void install_variable_buffer (char **bufp, size_t *lenp);
+void restore_variable_buffer (char *buf, size_t len);
 
 /* function.c */
 int handle_function (char **op, const char **stringp);
 int pattern_matches (const char *pattern, const char *percent, const char *str);
 char *subst_expand (char *o, const char *text, const char *subst,
-                    const char *replace, unsigned int slen, unsigned int rlen,
+                    const char *replace, size_t slen, size_t rlen,
                     int by_word);
 char *patsubst_expand_pat (char *o, const char *text, const char *pattern,
                            const char *replace, const char *pattern_percent,
@@ -177,11 +171,11 @@ void hash_init_function_table (void);
 void define_new_function(const floc *flocp, const char *name,
                          unsigned int min, unsigned int max, unsigned int flags,
                          gmk_func_ptr func);
-struct variable *lookup_variable (const char *name, unsigned int length);
-struct variable *lookup_variable_in_set (const char *name, unsigned int length,
+struct variable *lookup_variable (const char *name, size_t length);
+struct variable *lookup_variable_in_set (const char *name, size_t length,
                                          const struct variable_set *set);
 
-struct variable *define_variable_in_set (const char *name, unsigned int length,
+struct variable *define_variable_in_set (const char *name, size_t length,
                                          const char *value,
                                          enum variable_origin origin,
                                          int recursive,
@@ -216,7 +210,7 @@ struct variable *define_variable_in_set (const char *name, unsigned int length,
 #define define_variable_for_file(n,l,v,o,r,f) \
           define_variable_in_set((n),(l),(v),(o),(r),(f)->variables->set,NILF)
 
-void undefine_variable_in_set (const char *name, unsigned int length,
+void undefine_variable_in_set (const char *name, size_t length,
                                enum variable_origin origin,
                                struct variable_set *set);
 
@@ -234,7 +228,7 @@ void undefine_variable_in_set (const char *name, unsigned int length,
                                        (int)(l), (n));                  \
                               }while(0)
 
-char **target_environment (struct file *file);
+char **target_environment (struct file *file, int recursive);
 
 struct pattern_var *create_pattern_var (const char *target,
                                         const char *suffix);

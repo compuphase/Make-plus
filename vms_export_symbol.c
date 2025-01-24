@@ -4,7 +4,7 @@
  * DCL symbols.
  */
 
-/* Copyright (C) 2014-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2014-2022 Free Software Foundation, Inc.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
 terms of the GNU General Public License as published by the Free Software
@@ -16,7 +16,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 
 /* Per copyright assignment agreement with the Free Software Foundation
@@ -77,7 +77,7 @@ struct dcl_symbol
   struct dsc$descriptor_s value_desc;
   char name[MAX_DCL_SYMBOL_LEN + 1];    /* + 1 byte for null terminator */
   char value[MAX_DCL_SYMBOL_VALUE +1];  /* + 1 byte for null terminator */
-  char pad[3]; /* Pad structure to longword allignment */
+  char pad[3]; /* Pad structure to longword alignment */
 };
 
 static struct dcl_symbol * vms_dcl_symbol_head = NULL;
@@ -108,7 +108,7 @@ clear_exported_symbols (void)
 
   symbol = vms_dcl_symbol_head;
 
-  /* Walk the list of symbols.  This is done durring exit,
+  /* Walk the list of symbols.  This is done during exit,
    * so no need to free memory.
    */
   while (symbol != NULL)

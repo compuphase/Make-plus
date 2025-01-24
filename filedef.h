@@ -68,7 +68,7 @@ struct file
         us_question,            /* Needs to be updated (-q is is set).  */
         us_failed               /* Update failed.  */
       } update_status ENUM_BITFIELD (2);
-    enum cmd_state              /* State of the commands.  */
+    enum cmd_state              /* State of commands.  ORDER IS IMPORTANT!  */
       {
         cs_not_started = 0,     /* Not yet started.  Must be 0!  */
         cs_deps_running,        /* Dep commands running.  */
@@ -79,6 +79,7 @@ struct file
     unsigned int builtin:1;     /* True if the file is a builtin rule. */
     unsigned int precious:1;    /* Non-0 means don't delete file on quit */
     unsigned int loaded:1;      /* True if the file is a loaded object. */
+    unsigned int unloaded:1;    /* True if this loaded object was unloaded. */
     unsigned int low_resolution_time:1; /* Nonzero if this file's time stamp
                                            has only one-second resolution. */
     unsigned int tried_implicit:1; /* Nonzero if have searched for implicit

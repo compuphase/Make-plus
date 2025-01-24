@@ -1,5 +1,5 @@
 /* Running commands on Amiga
-Copyright (C) 1995-2016 Free Software Foundation, Inc.
+Copyright (C) 1995-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 #include "variable.h"
@@ -42,7 +42,7 @@ MyExecute (char **argv)
     buffer = AllocMem (len, MEMF_ANY);
 
     if (!buffer)
-      O (fatal, NILF, "MyExecute: Cannot allocate space for calling a command\n");
+      O (fatal, NILF, "MyExecute: Cannot allocate space for calling a command");
 
     ptr = buffer;
 
@@ -51,9 +51,8 @@ MyExecute (char **argv)
         if (((*aptr)[0] == ';' && !(*aptr)[1]))
         {
             *ptr ++ = '"';
-            strcpy (ptr, *aptr);
-            ptr += strlen (ptr);
-            *ptr ++ = '"';
+            ptr = stpcpy (ptr, *aptr);
+            *(ptr++) = '"';
         }
         else if ((*aptr)[0] == '@' && (*aptr)[1] == '@' && !(*aptr)[2])
         {
@@ -61,10 +60,7 @@ MyExecute (char **argv)
             continue;
         }
         else
-        {
-            strcpy (ptr, *aptr);
-            ptr += strlen (ptr);
-        }
+          ptr = stpcpy (ptr, *aptr);
         *ptr ++ = ' ';
         *ptr = 0;
     }

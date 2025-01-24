@@ -36,7 +36,7 @@
  *
  */
 
-/* Copyright (C) 2014-2016 Free Software Foundation, Inc.
+/* Copyright (C) 2014-2022 Free Software Foundation, Inc.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
 terms of the GNU General Public License as published by the Free Software
@@ -48,7 +48,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 
 /* Per copyright assignment agreement with the Free Software Foundation
@@ -409,7 +409,7 @@ set_program_name (const char *argv0)
                 int i;
 
                 i = 1;
-                while (isdigit (lastdot[i])) {
+                while (isdigit ((unsigned char) lastdot[i])) {
                     i++;
                 }
                 if (lastdot[i] == 0) {
@@ -417,7 +417,7 @@ set_program_name (const char *argv0)
                 }
             }
 
-            /* Find the .exe on the name (case insenstive) and toss it */
+            /* Find the .exe on the name (case insensitive) and toss it */
             dotexe = strrchr (vms_new_nam, '.');
             if (dotexe != NULL) {
                 if ((dotexe[1] == 'e' || dotexe[1] == 'E') &&

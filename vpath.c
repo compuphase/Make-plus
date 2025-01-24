@@ -1,5 +1,5 @@
 /* Implementation of pattern-matching file search paths for GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,11 +12,8 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
-#ifdef	HAVE_CONFIG_H
-# include <config.h>
-#endif
 #include <assert.h>
 
 #include "makeint.h"
@@ -61,9 +58,9 @@ static struct vpath *gpaths;
 void
 build_vpath_lists (void)
 {
-  register struct vpath *new = 0;
-  register struct vpath *old, *nexto;
-  register char *p;
+  struct vpath *new = 0;
+  struct vpath *old, *nexto;
+  char *p;
 
   /* Reverse the chain.  */
   for (old = vpaths; old != 0; old = nexto)
@@ -591,7 +588,7 @@ selective_vpath_search (struct vpath *path, const char *file,
           if (path_index)
             *path_index = i;
 
-          DB (DB_VERBOSE, (_(" Relocating '%s' to '%.*s'\n"), file, (p + 1 - name) + flen, name));
+          DB (DB_VERBOSE, (_(" Relocating '%s' to '%.*s'\n"), file, (int)((p + 1 - name) + flen), name));
           return strcache_add_len (name, (p + 1 - name) + flen);
         }
       else if (is_target_path && tgt_name == NULL)
@@ -616,7 +613,7 @@ selective_vpath_search (struct vpath *path, const char *file,
         *mtime_ptr = UNKNOWN_MTIME;
       if (path_index)
         *path_index = 0;
-      DB (DB_VERBOSE, (_(" Relocating '%s' to '%.*s'\n"), file, tgt_len, tgt_name));
+      DB (DB_VERBOSE, (_(" Relocating '%s' to '%.*s'\n"), file, (int)tgt_len, tgt_name));
       return strcache_add_len (tgt_name, tgt_len);
     }
 

@@ -1,5 +1,5 @@
 /* Convert between signal names and numbers.
-Copyright (C) 1990-2016 Free Software Foundation, Inc.
+Copyright (C) 1990-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 
@@ -237,10 +237,10 @@ strsignal (int sig)
 # elif HAVE_DECL___SYS_SIGLIST
 #  define sys_siglist __sys_siglist
 # else
-  static char sig_initted = 0;
+  static int sig_initted = 0;
 
   if (!sig_initted)
-    sig_initted = (char) signame_init ();
+    sig_initted = signame_init ();
 # endif
 #endif
 

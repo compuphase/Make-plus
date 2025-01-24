@@ -1,5 +1,5 @@
 /* Command processing for GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,8 +12,9 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
+#include <assert.h>
 #include "makeint.h"
 #include "filedef.h"
 #include "dep.h"
@@ -24,7 +25,6 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #include <windows.h>
 #include "w32err.h"
 #endif
-#include <assert.h>
 
 #if VMS
 # define FILE_LIST_SEPARATOR (vms_comma_separator ? ',' : ' ')
@@ -35,7 +35,7 @@ this program.  If not, see <http://www.gnu.org/licenses/>.  */
 #ifndef HAVE_UNISTD_H
 int getpid ();
 #endif
-
+
 
 static unsigned long
 dep_hash_1 (const void *key)
@@ -96,13 +96,16 @@ copy_escaped_name (char *dest, const char *name, int terminate)
     copy_escaped_name ((char*)(target), (name), 1); \
   } while (0);
 
-/* Set FILE's automatic variables up.  */
+/* Set FILE's automatic variables up.
+ * Use STEM to set $*.
+ * If STEM is NULL, then set FILE->STEM and $* to the target name with any
+ * suffix in the .SUFFIXES list stripped off.  */
 
 void
-set_file_variables (struct file *file)
+set_file_variables (struct file *file, const char *stem)
 {
   struct dep *d;
-  const char *target, *member, *stem, *source;
+  const char *vtarget, *vmember, *vstem, *vsource;
 
 #ifndef NO_ARCHIVES
   /* If the target is an archive member 'lib(member)',
@@ -110,7 +113,7 @@ set_file_variables (struct file *file)
 
   if (ar_name (file->name))
     {
-      unsigned int len;
+      size_t len;
       const char *cp;
       char *p;
 
@@ -118,28 +121,28 @@ set_file_variables (struct file *file)
       p = alloca (cp - file->name + 1);
       memcpy (p, file->name, cp - file->name);
       p[cp - file->name] = '\0';
-      dup_escaped_name (target, p);
+      dup_escaped_name (vtarget, p);
       len = strlen (cp + 1);
       p = alloca (len);
       memcpy (p, cp + 1, len - 1);
       p[len - 1] = '\0';
-      dup_escaped_name (member, p);
+      dup_escaped_name (vmember, p);
     }
   else
 #endif  /* NO_ARCHIVES.  */
     {
-      dup_escaped_name (target, file->name);
-      member = "";
+      dup_escaped_name (vtarget, file->name);
+      vmember = "";
     }
 
   /* $* is the stem from an implicit or static pattern rule.  */
-  if (file->stem == 0)
+  if (stem == NULL)
     {
       /* In Unix make, $* is set to the target name with
          any suffix in the .SUFFIXES list stripped off for
          explicit rules.  We store this in the 'stem' member.  */
       const char *name;
-      unsigned int len;
+      size_t len;
 
 #ifndef NO_ARCHIVES
       if (ar_name (file->name))
@@ -156,46 +159,46 @@ set_file_variables (struct file *file)
 
       for (d = enter_file (strcache_add (".SUFFIXES"))->deps; d ; d = d->next)
         {
-          unsigned int slen = strlen (dep_name (d));
-          if (len > slen && strneq (dep_name (d), name + (len - slen), slen))
+          const char *dn = dep_name (d);
+          size_t slen = strlen (dn);
+          if (len > slen && strneq (dn, name + (len - slen), slen))
             {
-              file->stem = strcache_add_len (name, len - slen);
+              file->stem = stem = strcache_add_len (name, len - slen);
               break;
             }
         }
       if (d == 0)
-        file->stem = "";
+        file->stem = stem = "";
     }
-  dup_escaped_name (stem, file->stem);
+  dup_escaped_name (vstem, stem);
 
   /* $< is the first not order-only dependency.  */
-  source = "";
+  vsource = "";
   for (d = file->deps; d != 0; d = d->next)
-    if (!d->ignore_mtime)
+    if (!d->ignore_mtime && !d->ignore_automatic_vars && !d->need_2nd_expansion)
       {
-        if (!d->need_2nd_expansion)
-          dup_escaped_name(source, dep_name (d));
+        dup_escaped_name(vsource, dep_name (d));
         break;
       }
 
-  if (file->cmds == default_file->cmds)
+  if (file->cmds != NULL && file->cmds == default_file->cmds)
     /* This file got its commands from .DEFAULT.
        In this case $< is the same as $@.  */
-    source = target;
+    vsource = vtarget;
 
 #define DEFINE_VARIABLE(name, len, value) \
   (void) define_variable_for_file (name,len,value,o_automatic,0,file)
 
   /* Define the variables.  */
 
-  DEFINE_VARIABLE ("<", 1, source);   /* shorthands */
-  DEFINE_VARIABLE ("*", 1, stem);
-  DEFINE_VARIABLE ("@", 1, target);
-  DEFINE_VARIABLE ("%", 1, member);
+  DEFINE_VARIABLE ("<", 1, vsource);   /* shorthands */
+  DEFINE_VARIABLE ("*", 1, vstem);
+  DEFINE_VARIABLE ("@", 1, vtarget);
+  DEFINE_VARIABLE ("%", 1, vmember);
 
-  DEFINE_VARIABLE (".SOURCE", 7, source);   /* full names */
-  DEFINE_VARIABLE (".STEM", 5, stem);
-  DEFINE_VARIABLE (".TARGET", 7, target);
+  DEFINE_VARIABLE (".SOURCE", 7, vsource);   /* full names */
+  DEFINE_VARIABLE (".STEM", 5, vstem);
+  DEFINE_VARIABLE (".TARGET", 7, vtarget);
 
   /* Compute the values for $^, $+, $?, and $|.  */
 
@@ -203,12 +206,12 @@ set_file_variables (struct file *file)
     static char *newsources=0, *sourcesdup=0, *orderonly=0;
     static unsigned int newsources_max=0, sourcesdup_max=0, orderonly_max=0;
 
-    unsigned int newsources_len, sourcesdup_len, orderonly_len;
+    size_t newsources_len, sourcesdup_len, orderonly_len;
     char *cp;
     char *sources;
     char *qp;
     char *bp;
-    unsigned int len;
+    size_t len;
 
     struct hash_table dep_hash;
     void **slot;
@@ -220,7 +223,7 @@ set_file_variables (struct file *file)
     orderonly_len = 0;
     for (d = file->deps; d != 0; d = d->next)
       {
-        if (!d->need_2nd_expansion)
+        if (!d->need_2nd_expansion && !d->ignore_automatic_vars)
           {
             if (d->ignore_mtime)
               orderonly_len += escaped_name_length (dep_name (d)) + 1;
@@ -242,7 +245,7 @@ set_file_variables (struct file *file)
 
     newsources_len = sourcesdup_len + 1;   /* Will be this or less.  */
     for (d = file->deps; d != 0; d = d->next)
-      if (! d->ignore_mtime && ! d->need_2nd_expansion)
+      if (! d->ignore_mtime && ! d->need_2nd_expansion && ! d->ignore_automatic_vars)
         {
           const char *c = dep_name (d);
 
@@ -293,7 +296,7 @@ set_file_variables (struct file *file)
 
     for (d = file->deps; d != 0; d = d->next)
       {
-        if (d->need_2nd_expansion)
+        if (d->need_2nd_expansion || d->ignore_automatic_vars)
           continue;
 
         slot = hash_find_slot (&dep_hash, d);
@@ -315,7 +318,7 @@ set_file_variables (struct file *file)
       {
         const char *c;
 
-        if (d->need_2nd_expansion || hash_find_item (&dep_hash, d) != d)
+        if (d->need_2nd_expansion || d->ignore_automatic_vars || hash_find_item (&dep_hash, d) != d)
           continue;
 
         c = dep_name (d);
@@ -377,17 +380,15 @@ chop_commands (struct commands *cmds)
   unsigned int nlines, idx;
   char **lines;
 
-  /* If we don't have any commands,
-     or we already parsed them, never mind.  */
-
-  if (!cmds || cmds->command_lines != 0)
+  /* If we don't have any commands, or we already parsed them, never mind.  */
+  if (!cmds || cmds->command_lines != NULL)
     return;
 
   /* Chop CMDS->commands up into lines in CMDS->command_lines.  */
 
   if (one_shell)
     {
-      int l = strlen (cmds->commands);
+      size_t l = strlen (cmds->commands);
 
       nlines = 1;
       lines = xmalloc (nlines * sizeof (char *));
@@ -399,26 +400,28 @@ chop_commands (struct commands *cmds)
     }
   else
     {
-      const char *p;
+      const char *p = cmds->commands;
+      size_t max = 5;
 
-      nlines = 5;
-      lines = xmalloc (nlines * sizeof (char *));
-      idx = 0;
-	  assert (cmds->commands != NULL);
-      p = cmds->commands;
+      nlines = 0;
+      lines = xmalloc (max * sizeof (char *));
+	  assert (p != NULL);
       while (*p != '\0')
         {
           const char *end = p;
         find_end:
           end = strchr (end, '\n');
-          if (end == 0)
+          if (end == NULL)
             end = p + strlen (p);
           else if (end > p && end[-1] == '\\')
             {
               int backslash = 1;
-              const char *b;
-              for (b = end - 2; b >= p && *b == '\\'; --b)
-                backslash = !backslash;
+              if (end > p + 1)
+                {
+                  const char *b;
+                  for (b = end - 2; b >= p && *b == '\\'; --b)
+                    backslash = !backslash;
+                }
               if (backslash)
                 {
                   ++end;
@@ -426,21 +429,20 @@ chop_commands (struct commands *cmds)
                 }
             }
 
-          if (idx == nlines)
+          if (nlines == USHRT_MAX)
+            ON (fatal, &cmds->fileinfo,
+                _("Recipe has too many lines (limit %hu)"), nlines);
+
+          if (nlines == max)
             {
-              nlines += 2;
-              lines = xrealloc (lines, nlines * sizeof (char *));
+              max += 2;
+              lines = xrealloc (lines, max * sizeof (char *));
             }
-          lines[idx++] = xstrndup (p, end - p);
+
+          lines[nlines++] = xstrndup (p, (size_t)(end - p));
           p = end;
           if (*p != '\0')
             ++p;
-        }
-
-      if (idx != nlines)
-        {
-          nlines = idx;
-          lines = xrealloc (lines, nlines * sizeof (char *));
         }
     }
 
@@ -481,7 +483,7 @@ chop_commands (struct commands *cmds)
         flags |= COMMANDS_RECURSE;
 
       cmds->lines_flags[idx] = flags;
-      cmds->any_recurse |= flags & COMMANDS_RECURSE ? 1 : 0;
+      cmds->any_recurse |= (flags & COMMANDS_RECURSE) ? 1 : 0;
     }
 }
 
@@ -513,17 +515,22 @@ execute_file_commands (struct file *file)
 
   initialize_file_variables (file, 0);
 
-  set_file_variables (file);
+  set_file_variables (file, file->stem);
 
-  /* If this is a loaded dynamic object, unload it before remaking.
-     Some systems don't support overwriting a loaded object.  */
-  if (file->loaded)
-    unload_file (file->name);
+  /* Some systems don't support overwriting a loaded object so if this one
+     unload it before remaking.  Keep its name in .LOADED: it will be rebuilt
+     and loaded again.  If rebuilding or loading again fail, then we'll exit
+     anyway and it won't matter.  */
+  if (file->loaded && unload_file (file->name) == 0)
+    {
+      file->loaded = 0;
+      file->unloaded = 1;
+    }
 
   /* Start the commands running.  */
   new_job (file);
 }
-
+
 #ifdef WINDOWS32
 /* defined in job.c */
 extern void wait_until_main_thread_sleeps (void);
@@ -536,7 +543,7 @@ int handling_fatal_signal = 0;
 
 /* Handle fatal signals.  */
 
-RETSIGTYPE
+void
 fatal_error_signal (int sig)
 {
 #ifdef __MSDOS__
@@ -578,7 +585,7 @@ fatal_error_signal (int sig)
     {
       struct child *c;
       for (c = children; c != 0; c = c->next)
-        if (!c->remote)
+        if (!c->remote && c->pid > 0)
           (void) kill (c->pid, SIGTERM);
     }
 
@@ -599,7 +606,7 @@ fatal_error_signal (int sig)
       /* Remote children won't automatically get signals sent
          to the process group, so we must send them.  */
       for (c = children; c != 0; c = c->next)
-        if (c->remote)
+        if (c->remote && c->pid > 0)
           (void) remote_kill (c->pid, sig);
 
       for (c = children; c != 0; c = c->next)
@@ -633,7 +640,7 @@ fatal_error_signal (int sig)
 #else
   /* Signal the same code; this time it will really be fatal.  The signal
      will be unblocked when we return and arrive then to kill us.  */
-  if (kill (getpid (), sig) < 0)
+  if (kill (make_pid (), sig) < 0)
     pfatal_with_name ("kill");
 #endif /* not WINDOWS32 */
 #endif /* not Amiga */
@@ -698,7 +705,7 @@ delete_child_targets (struct child *child)
 {
   struct dep *d;
 
-  if (child->deleted)
+  if (child->deleted || child->pid < 0)
     return;
 
   /* Delete the target file if it changed.  */
@@ -741,7 +748,7 @@ print_commands (const struct commands *cmds)
           bs = *end == '\\' ? !bs : 0;
         }
 
-      printf ("\t%.*s\n", (int) (end - s), s);
+      printf ("    %.*s\n", (int) (end - s), s);
 
       s = end + (end[0] == '\n');
     }

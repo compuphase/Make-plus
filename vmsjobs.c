@@ -1,7 +1,7 @@
 /* --------------- Moved here from job.c ---------------
    This file must be #included in job.c, as it accesses static functions.
 
-Copyright (C) 1996-2016 Free Software Foundation, Inc.
+Copyright (C) 1996-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -14,7 +14,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include <string.h>
 #include <descrip.h>
@@ -329,7 +329,7 @@ posix_parse_sq (struct token_info *token)
 static char *
 posix_parse_dq (struct token_info *token)
 {
-  /* Unix mode:  Any imbedded \" becomes doubled.
+  /* Unix mode:  Any embedded \" becomes doubled.
                  \t is tab, \\, \$ leading character stripped.
                  $ character replaced with \' unless escaped.
   */

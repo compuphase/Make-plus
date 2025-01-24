@@ -1,5 +1,5 @@
 /* Directory entry code for Window platforms.
-Copyright (C) 1996-2016 Free Software Foundation, Inc.
+Copyright (C) 1996-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 
 #include <config.h>
@@ -30,7 +30,7 @@ opendir(const char* pDirName)
         struct stat sb;
         DIR*    pDir;
         char*   pEndDirName;
-        int     nBufferLen;
+        size_t  nBufferLen;
 
         /* sanity checks */
         if (!pDirName) {
@@ -128,12 +128,19 @@ readdir(DIR* pDir)
         } else if (!FindNextFile(pDir->dir_hDirHandle, &wfdFindData))
                         return NULL;
 
-        /* bump count for next call to readdir() or telldir() */
+        /* bump count for next call to readdir() */
         pDir->dir_nNumFiles++;
 
         /* fill in struct dirent values */
         pDir->dir_sdReturn.d_ino = (ino_t)-1;
         strcpy(pDir->dir_sdReturn.d_name, wfdFindData.cFileName);
+
+        if (wfdFindData.dwFileAttributes & FILE_ATTRIBUTE_DEVICE)
+          pDir->dir_sdReturn.d_type = DT_CHR;
+        else if (wfdFindData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+          pDir->dir_sdReturn.d_type = DT_DIR;
+        else
+          pDir->dir_sdReturn.d_type = DT_REG;
 
         return &pDir->dir_sdReturn;
 }
@@ -162,24 +169,6 @@ rewinddir(DIR* pDir)
         pDir->dir_nNumFiles = 0;
 
         return;
-}
-
-int
-telldir(DIR* pDir)
-{
-        if (!pDir) {
-                errno = EINVAL;
-                return -1;
-        }
-
-        /* sanity check that this is a DIR pointer */
-        if (pDir->dir_ulCookie != __DIRENT_COOKIE) {
-                errno = EINVAL;
-                return -1;
-        }
-
-        /* return number of times readdir() called */
-        return pDir->dir_nNumFiles;
 }
 
 void

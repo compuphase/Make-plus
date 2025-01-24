@@ -495,7 +495,7 @@ process_begin(
         STARTUPINFO startInfo;
         PROCESS_INFORMATION procInfo;
         char *envblk=NULL;
-        int envsize_needed = 0;
+        size_t envsize_needed = 0;
         int pass_null_exec_path = 0;
 
         /*
@@ -532,7 +532,7 @@ process_begin(
                 if (exec_path[0] == '/') {
                         char *new_argv0;
                         char **argvi = argv;
-                        int arglen = 0;
+                        size_t arglen = 0;
 
                         strcpy(buf, variable_expand ("$(SHELL)"));
                         shell_name = &buf[0];
@@ -630,7 +630,8 @@ process_begin(
                     && _stricmp(exec_path, argv[0]) == 0) {
                         char *new_argv, *p;
                         char **argvi;
-                        int arglen, i;
+                        size_t arglen;
+                        int i;
                         pass_null_exec_path = 1;
                         /* Rewrite argv[] replacing argv[0] with exec_fname.  */
                         for (argvi = argv + 1, arglen = strlen(exec_fname) + 1;
