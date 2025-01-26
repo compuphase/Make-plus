@@ -1,5 +1,5 @@
 /* Pattern and suffix rule internals for GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 
@@ -49,7 +49,7 @@ unsigned int max_pattern_deps;
 
 /* Maximum length of the name of a dependencies of any pattern rule.  */
 
-unsigned int max_pattern_dep_length;
+size_t max_pattern_dep_length;
 
 /* Pointer to structure for the file .SUFFIXES
    whose dependencies are the suffixes to be searched.  */
@@ -58,18 +58,75 @@ struct file *suffix_file;
 
 /* Maximum length of a suffix.  */
 
-unsigned int maxsuffix;
-
-/* Compute the maximum dependency length and maximum number of
-   dependencies of all implicit rules.  Also sets the subdir
-   flag for a rule when appropriate, possibly removing the rule
-   completely when appropriate.  */
+static size_t maxsuffix;
+
+/* Return the rule definition: space separated rule targets, followed by
+   either a colon or two colons in the case of a terminal rule, followed by
+   space separated rule prerequisites, followed by a pipe, followed by
+   order-only prerequisites, if present.  */
+
+const char *
+get_rule_defn (struct rule *r)
+{
+  if (r->_defn == NULL)
+    {
+      size_t len = 8; /* Reserve for ":: ", " | ", and nul.  */
+      unsigned int k;
+      char *p;
+      const char *sep = "";
+      const struct dep *dep, *ood = 0;
+
+      for (k = 0; k < r->num; ++k)
+        len += r->lens[k] + 1;
+
+      for (dep = r->deps; dep; dep = dep->next)
+        len += strlen (dep_name (dep)) + (dep->wait_here ? CSTRLEN (" .WAIT") : 0) + 1;
+
+      p = r->_defn = xmalloc (len);
+      for (k = 0; k < r->num; ++k, sep = " ")
+        p = mempcpy (mempcpy (p, sep, strlen (sep)), r->targets[k], r->lens[k]);
+      *p++ = ':';
+      if (r->terminal)
+        *p++ = ':';
+
+      /* Copy all normal dependencies; note any order-only deps.  */
+      for (dep = r->deps; dep; dep = dep->next)
+        if (dep->ignore_mtime == 0)
+          {
+            if (dep->wait_here)
+              p = mempcpy (p, " .WAIT", CSTRLEN (" .WAIT"));
+            p = mempcpy (mempcpy (p, " ", 1), dep_name (dep),
+                         strlen (dep_name (dep)));
+          }
+        else if (ood == 0)
+          ood = dep;
+
+      /* Copy order-only deps, if we have any.  */
+      for (sep = " | "; ood; ood = ood->next, sep = " ")
+        if (ood->ignore_mtime)
+          {
+            p = mempcpy (p, sep, strlen (sep));
+            if (ood->wait_here)
+              p = mempcpy (p, ".WAIT ", CSTRLEN (".WAIT "));
+            p = mempcpy (p, dep_name (ood), strlen (dep_name (ood)));
+          }
+      *p = '\0';
+    }
+
+  return r->_defn;
+}
+
+/* Compute the maximum dependency length and maximum number of dependencies of
+   all implicit rules.  Also sets the subdir flag for a rule when appropriate,
+   possibly removing the rule completely when appropriate.
+
+   Add any global EXTRA_PREREQS here as well.  */
 
 void
 count_implicit_rule_limits (void)
 {
-  char *name;
-  int namelen;
+  char *name = NULL;
+  int namelen = 0;
   struct rule *rule;
 
   num_pattern_rules = max_pattern_targets = max_pattern_deps = 0;
@@ -92,7 +149,7 @@ count_implicit_rule_limits (void)
       for (dep = rule->deps; dep != 0; dep = dep->next)
         {
           const char *dname = dep_name (dep);
-          unsigned int len = strlen (dname);
+          size_t len = strlen (dname);
 
 #ifdef VMS
           const char *p = strrchr (dname, ']');
@@ -142,7 +199,7 @@ count_implicit_rule_limits (void)
 
   free (name);
 }
-
+
 /* Create a pattern rule from a suffix rule.
    TARGET is the target suffix; SOURCE is the source suffix.
    CMDS are the commands.

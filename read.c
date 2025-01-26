@@ -3159,15 +3159,21 @@ parse_file_seq (char **stringp, size_t size, int stopmap,
   struct nameseq *new = 0;
   struct nameseq **newp = &new;
 #define NEWELT(_n)  do { \
-                        const char *__n = (_n); \
-                        *newp = xcalloc (size); \
-                        (*newp)->name = (cachep ? strcache_add (__n) : xstrdup (__n)); \
-                        newp = &(*newp)->next; \
+                        struct nameseq *_ns = xcalloc (size);       \
+                        const char *__n = (_n);                     \
+                        _ns->name = (cachep ? strcache_add (__n) : xstrdup (__n)); \
+                        if (found_wait) {                           \
+                          ((struct dep*)_ns)->wait_here = 1;        \
+                          found_wait = 0;                           \
+                        }                                           \
+                        *newp = _ns;                                \
+                        newp = &_ns->next;                          \
                     } while(0)
 
   char *p;
   glob_t gl;
   char *tp;
+  int found_wait = 0;
 
   /* Always stop on NUL.  */
   stopmap |= MAP_NUL;
@@ -3237,6 +3243,14 @@ parse_file_seq (char **stringp, size_t size, int stopmap,
 #endif
       if (p == 0)
         p = s + strlen (s);
+
+      if (ANY_SET (flags, PARSEFS_WAIT) && (p - s) == CSTRLEN (".WAIT")
+          && memcmp (s, ".WAIT", CSTRLEN (".WAIT")) == 0)
+        {
+          /* Note that we found a .WAIT for the next dep but skip it.  */
+          found_wait = 1;
+          continue;
+        }
 
       /* Strip leading "this directory" references.  */
       if (NONE_SET (flags, PARSEFS_NOSTRIP))

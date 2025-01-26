@@ -1,5 +1,5 @@
 /* Basic dependency engine for GNU Make.
-Copyright (C) 1988-2016 Free Software Foundation, Inc.
+Copyright (C) 1988-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -12,7 +12,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #include "makeint.h"
 #include "filedef.h"
@@ -556,6 +556,9 @@ update_file_1 (struct file *file, unsigned int depth)
           int maybe_make;
           int dontcare = 0;
 
+          if (d->wait_here && running)
+            break;
+
           check_renamed (d->file);
 
           mtime = file_mtime (d->file);
@@ -565,6 +568,7 @@ update_file_1 (struct file *file, unsigned int depth)
             {
               OSS (error, NILF, _("Circular %s <- %s dependency dropped."),
                    file->name, d->file->name);
+
               /* We cannot free D here because our the caller will still have
                  a reference to it when we were called recursively via
                  check_dep below.  */
@@ -632,57 +636,62 @@ update_file_1 (struct file *file, unsigned int depth)
   if (must_make || always_make_flag)
     {
       for (d = file->deps; d != 0; d = d->next)
-        if (d->file->intermediate)
-          {
-            enum update_status new;
-            int dontcare = 0;
+        {
+          if (d->wait_here && running)
+            break;
 
-            FILE_TIMESTAMP mtime = file_mtime (d->file);
-            check_renamed (d->file);
-            d->file->parent = file;
+          if (d->file->intermediate)
+            {
+              enum update_status new;
+              int dontcare = 0;
 
-            /* Inherit dontcare flag from our parent. */
-            if (rebuilding_makefiles)
+              FILE_TIMESTAMP mtime = file_mtime (d->file);
+              check_renamed (d->file);
+              d->file->parent = file;
+
+              /* Inherit dontcare flag from our parent. */
+              if (rebuilding_makefiles)
+                {
+                  dontcare = d->file->dontcare;
+                  d->file->dontcare = file->dontcare;
+                }
+
+              /* We may have already considered this file, when we didn't know
+                 we'd need to update it.  Force update_file() to consider it and
+                 not prune it.  */
+              d->file->considered = 0;
+
+              new = update_file (d->file, depth);
+              if (new > dep_status)
+                dep_status = new;
+
+              /* Restore original dontcare flag. */
+              if (rebuilding_makefiles)
+                d->file->dontcare = dontcare;
+
+              check_renamed (d->file);
+
               {
-                dontcare = d->file->dontcare;
-                d->file->dontcare = file->dontcare;
+                struct file *f = d->file;
+                if (f->double_colon)
+                  f = f->double_colon;
+                do
+                  {
+                    running |= (f->command_state == cs_running
+                                || f->command_state == cs_deps_running);
+                    f = f->prev;
+                  }
+                while (f != 0);
               }
 
-            /* We may have already considered this file, when we didn't know
-               we'd need to update it.  Force update_file() to consider it and
-               not prune it.  */
-            d->file->considered = 0;
+              if (dep_status && !keep_going_flag)
+                break;
 
-            new = update_file (d->file, depth);
-            if (new > dep_status)
-              dep_status = new;
-
-            /* Restore original dontcare flag. */
-            if (rebuilding_makefiles)
-              d->file->dontcare = dontcare;
-
-            check_renamed (d->file);
-
-            {
-              register struct file *f = d->file;
-              if (f->double_colon)
-                f = f->double_colon;
-              do
-                {
-                  running |= (f->command_state == cs_running
-                              || f->command_state == cs_deps_running);
-                  f = f->prev;
-                }
-              while (f != 0);
+              if (!running)
+                d->changed = ((file->phony && file->cmds != 0)
+                              || file_mtime (d->file) != mtime);
             }
-
-            if (dep_status && !keep_going_flag)
-              break;
-
-            if (!running)
-              d->changed = ((file->phony && file->cmds != 0)
-                            || file_mtime (d->file) != mtime);
-          }
+        }
     }
 
   finish_updating (file);

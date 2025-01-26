@@ -333,6 +333,7 @@ rehash_file (struct file *from_file, const char *to_hname)
   MERGE (cmd_target);
   MERGE (phony);
   MERGE (loaded);
+  MERGE (notintermediate);
   MERGE (ignore_vpath);
 #undef MERGE
 
@@ -385,7 +386,7 @@ remove_intermediates (int sig)
            given on the command line, and it's either a -include makefile or
            it's not precious.  */
         if (f->intermediate && (f->dontcare || !f->precious)
-            && !f->secondary && !f->cmd_target)
+            && !f->secondary && !f->notintermediate && !f->cmd_target)
           {
             int status;
             if (f->update_status == us_none)
@@ -724,7 +725,12 @@ snap_deps (void)
     /* Mark .INTERMEDIATE deps as intermediate files.  */
     for (d = f->deps; d != 0; d = d->next)
       for (f2 = d->file; f2 != 0; f2 = f2->prev)
-        f2->intermediate = 1;
+        if (f2->notintermediate)
+          OS (fatal, NILF,
+              _("%s cannot be both .NOTINTERMEDIATE and .INTERMEDIATE"),
+              f2->name);
+        else
+          f2->intermediate = 1;
     /* .INTERMEDIATE with no deps does nothing.
        Marking all files as intermediates is useless since the goal targets
        would be deleted after they are built.  */
@@ -734,7 +740,12 @@ snap_deps (void)
     if (f->deps)
       for (d = f->deps; d != 0; d = d->next)
         for (f2 = d->file; f2 != 0; f2 = f2->prev)
-          f2->intermediate = f2->secondary = 1;
+          if (f2->notintermediate)
+            OS (fatal, NILF,
+                _("%s cannot be both .NOTINTERMEDIATE and .SECONDARY"),
+                f2->name);
+          else
+            f2->intermediate = f2->secondary = 1;
     /* .SECONDARY with no deps listed marks *all* files that way.  */
     else
       {
@@ -760,7 +771,7 @@ snap_deps (void)
   f = lookup_file (".SILENT");
   if (f != 0 && f->is_target)
     {
-      if (f->deps == 0)
+      if (f->deps == NULL)
         silent_flag = 1;
       else
         for (d = f->deps; d != 0; d = d->next)
@@ -769,8 +780,20 @@ snap_deps (void)
     }
 
   f = lookup_file (".NOTPARALLEL");
-  if (f != 0 && f->is_target)
-    not_parallel = 1;
+  if (f != NULL && f->is_target)
+    {
+      struct dep *d2;
+
+      if (f->deps != NULL)
+        not_parallel = 1;
+      else
+        /* Set a wait point between every prerequisite of each target.  */
+        for (d = f->deps; d != NULL; d = d->next)
+          for (f2 = d->file; f2 != NULL; f2 = f2->prev)
+            if (f2->deps)
+              for (d2 = f2->deps->next; d2 != NULL; d2 = d2->next)
+                d2->wait_here = 1;
+    }
 
 #ifndef NO_MINUS_C_MINUS_O
   /* If .POSIX was defined, remove OUTPUT_OPTION to comply.  */
@@ -909,17 +932,17 @@ print_prereqs (const struct dep *deps)
   /* Print all normal dependencies; note any order-only deps.  */
   for (; deps != 0; deps = deps->next)
     if (! deps->ignore_mtime)
-      printf (" %s", dep_name (deps));
+      printf (" %s%s", deps->wait_here ? ".WAIT " : "", dep_name (deps));
     else if (! ood)
       ood = deps;
 
   /* Print order-only deps, if we have any.  */
   if (ood)
     {
-      printf (" | %s", dep_name (ood));
+      printf (" | %s%s", ood->wait_here ? ".WAIT " : "", dep_name (ood));
       for (ood = ood->next; ood != 0; ood = ood->next)
         if (ood->ignore_mtime)
-          printf (" %s", dep_name (ood));
+          printf (" %s%s", ood->wait_here ? ".WAIT " : "", dep_name (ood));
     }
 
   putchar ('\n');
@@ -964,6 +987,8 @@ print_file (const void *item)
     printf (_("#  Implicit/static pattern stem: '%s'\n"), f->stem);
   if (f->intermediate)
     puts (_("#  File is an intermediate prerequisite."));
+  if (f->notintermediate)
+    puts (_("#  File is a prerequisite of .NOTINTERMEDIATE."));
   if (f->also_make != 0)
     {
       const struct dep *d;

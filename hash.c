@@ -18,7 +18,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.  */
 #include "hash.h"
 #include <assert.h>
 
-#define	CALLOC(t, n) ((t *) xcalloc (sizeof (t) * (n)))
+#define CALLOC(t, n) ((t *) xcalloc (sizeof (t) * (n)))
 #define MALLOC(t, n) ((t *) xmalloc (sizeof (t) * (n)))
 #define REALLOC(o, t, n) ((t *) xrealloc ((o), sizeof (t) * (n)))
 #define CLONE(o, t, n) ((t *) memcpy (MALLOC (t, (n)), (o), sizeof (t) * (n)))
@@ -48,7 +48,7 @@ hash_init (struct hash_table *ht, unsigned long size,
   if (ht->ht_vec == 0)
     {
       fprintf (stderr, _("can't allocate %lu bytes for hash table: memory exhausted"),
-	       ht->ht_size * (unsigned long) sizeof (void *));
+               ht->ht_size * (unsigned long) sizeof (void *));
       exit (MAKE_TROUBLE);
     }
 

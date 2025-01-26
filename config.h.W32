@@ -1,6 +1,6 @@
 /* config.h.W32 -- hand-massaged config.h file for Windows builds       -*-C-*-
 
-Copyright (C) 1996-2016 Free Software Foundation, Inc.
+Copyright (C) 1996-2022 Free Software Foundation, Inc.
 This file is part of GNU Make.
 
 GNU Make is free software; you can redistribute it and/or modify it under the
@@ -13,7 +13,7 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
 A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 You should have received a copy of the GNU General Public License along with
-this program.  If not, see <http://www.gnu.org/licenses/>.  */
+this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 /* Suppress some Visual C++ warnings.
    Maybe after the code cleanup for ISO C we can remove some/all of these.  */
@@ -388,9 +388,6 @@ char *ttyname (int);
 
 /* Define to the character that separates directories in PATH. */
 #define PATH_SEPARATOR_CHAR ';'
-
-/* Define as the return type of signal handlers ('int' or 'void'). */
-#define RETSIGTYPE void
 
 /* Define to the name of the SCCS 'get' command. */
 #define SCCS_GET "echo no sccs get"

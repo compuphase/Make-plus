@@ -386,9 +386,6 @@
 /* Define to the character that separates directories in PATH. */
 #undef PATH_SEPARATOR_CHAR
 
-/* Define as the return type of signal handlers (`int' or `void'). */
-#undef RETSIGTYPE
-
 /* Define to the name of the SCCS 'get' command. */
 #undef SCCS_GET
 

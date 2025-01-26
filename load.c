@@ -18,6 +18,7 @@ this program.  If not, see <https://www.gnu.org/licenses/>.  */
 
 #if MAKE_LOAD
 
+#include <assert.h>
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -133,6 +134,7 @@ load_file (const floc *flocp, const char **ldname, int noerror)
 
   /* Break the input into an object file name and a symbol name.  If no symbol
      name was provided, compute one from the object file name.  */
+  assert(ldname != NULL);
   fp = strchr (*ldname, '(');
   if (fp)
     {

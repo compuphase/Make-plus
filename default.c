@@ -39,6 +39,7 @@ static const char *default_variables[] =
     "GNUMAKEFLAGS", "",     /* Make this assignment to avoid undefined variable warnings.  */
     ".RECIPEINDENT", "4",   /* Default indentation for recipe prefixes.  */
     ".space", " ",          /* For use in macros where you need to match on a space.  */
+    ".newline", "\n",       /* For use in macros where you need to output a line break.  */
     0, 0
   };
 

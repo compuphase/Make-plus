@@ -52,7 +52,8 @@ struct nameseq
     unsigned int ignore_mtime : 1;              \
     unsigned int staticpattern : 1;             \
     unsigned int need_2nd_expansion : 1;        \
-    unsigned int ignore_automatic_vars : 1
+    unsigned int ignore_automatic_vars : 1;     \
+    unsigned int wait_here : 1
 
 struct dep
   {

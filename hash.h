@@ -56,9 +56,9 @@ struct hash_table
 typedef int (*qsort_cmp_t) __P((void const *, void const *));
 
 void hash_init __P((struct hash_table *ht, unsigned long size,
-		    hash_func_t hash_1, hash_func_t hash_2, hash_cmp_func_t hash_cmp));
+                    hash_func_t hash_1, hash_func_t hash_2, hash_cmp_func_t hash_cmp));
 void hash_load __P((struct hash_table *ht, void *item_table,
-		    unsigned long cardinality, unsigned long size));
+                    unsigned long cardinality, unsigned long size));
 void **hash_find_slot __P((struct hash_table *ht, void const *key));
 void *hash_find_item __P((struct hash_table *ht, void const *key));
 void *hash_insert __P((struct hash_table *ht, const void *item));
@@ -76,7 +76,6 @@ void **hash_dump __P((struct hash_table *ht, void **vector_0, qsort_cmp_t compar
 extern void *hash_deleted_item;
 #define HASH_VACANT(item) ((item) == 0 || (void *) (item) == hash_deleted_item)
 
-
 /* hash and comparison macros for case-sensitive string keys. */
 
 /* Due to the strcache, it's not uncommon for the string pointers to

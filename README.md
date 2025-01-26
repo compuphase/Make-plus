@@ -54,7 +54,7 @@ The predefined variables for targets and prerequisites are cryptic and difficult
 
 Note: the descriptions of these macros is terse and incomplete. Look up the full function of these macros in the GNU manual. An updated manual, focusing on this fork, is part of this project; see the "doc" folder.
 
-## A predefined variable for the space character
+## Predefined variables for the space and "newline" characters
 We use some tools that require a list of files separated with commas on the input line. GNU make separates the prerequisites by space characters. This can be converted with the `$(subst ...)` function, like in:
 ```
 comma = ,
@@ -63,6 +63,8 @@ all:
 	process output.db $(subst $(.space),$(comma),$(.SOURCES))
 ```
 Although you can create a definition for `$(.space)` in a makefile, it is a bit of a kludge. Therefore, a macro for a space character is now predefined.
+
+The same reasoning applies to the newline character: there is a way to create a definition for a newline in a makefile, but it is a kludge. Therefore, macro `$(.newline)` is predefined as well.
 
 ## "Built-in" rules and macros have moved to a configuration file
 The built-in pattern rules, suffix rules and variable/macro definition are stored in a configuration file. The file is called `make.conf` (or `make.cfg` in DOS). It is located in the `/etc` directory for Unix-like operating systems, and in the same directory that the `make` executable is in under Microsoft Windows and DOS.
