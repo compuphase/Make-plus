@@ -1215,13 +1215,25 @@ main (int argc, char **argv, char **envp)
     {
       program = strrchr (argv[0], DIRSEP_C);
 #if defined(HAVE_DOS_PATHS)
+      if (program)
         {
-          char *p = strrchr (argv[0], '/');
-          if (p != NULL && (program == NULL || p > program))
-            program = p;
+          program += 1; /* skip '\\' */
+          char *p = strrchr(program, '/');
+          if (p)
+            program = p + 1;
         }
-      if (program == NULL && argv[0][1] == ':')
-        program = argv[0] + 1;
+      else
+        {
+          char *p = strrchr(argv[0], '/');
+          if (p)
+            program = p + 1;
+        }
+      if (!program)
+        {
+          program = argv[0];
+          if (program[1] == ':')
+            program += 2;
+        }
       if (program)
         {
           int argv0_len = strlen (program);
@@ -2530,7 +2542,7 @@ main (int argc, char **argv, char **envp)
     perror_with_name (_("unlink (temporary file): "), stdin_nm);
 
   /* If there were no command-line goals, use the default.  */
-  if (goals == 0)
+  if (!goals)
     {
       char *p;
 
@@ -2578,7 +2590,6 @@ main (int argc, char **argv, char **envp)
     }
   else
     lastgoal->next = 0;
-
 
   if (!goals)
     {

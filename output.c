@@ -690,6 +690,8 @@ fatal (const floc *flocp, size_t len, const char *fmt, ...)
   const char *stop = _(".  Stop.\n");
   char *p;
 
+  assert (fmt != NULL);
+  assert (program != NULL && strlen(program) > 0);
   len += (strlen (fmt) + strlen (program)
           + (flocp && flocp->filenm ? strlen (flocp->filenm) : 0)
           + INTSTR_LENGTH + 8 + strlen (stop) + 1);

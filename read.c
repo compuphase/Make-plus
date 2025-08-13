@@ -2501,7 +2501,7 @@ const char *
 find_percent_cached (const char **string)
 {
   const char *p = *string;
-  char *new = 0;
+  char *newstr = 0;
   int slen = 0;
 
   /* If the first char is a % return now.  This lets us avoid extra tests
@@ -2532,22 +2532,22 @@ find_percent_cached (const char **string)
 
         /* At this point we know we'll need to allocate a new string.
            Make a copy if we haven't yet done so.  */
-        if (! new)
+        if (! newstr)
           {
             slen = strlen (*string);
-            new = alloca (slen + 1);
-            memcpy (new, *string, slen + 1);
-            p = new + (p - *string);
-            *string = new;
+            newstr = xmalloc (slen + 1);
+            memcpy (newstr, *string, slen + 1);
+            p = newstr + (p - *string);
+            *string = newstr;
           }
 
-        /* At this point *string, p, and new all point into the same string.
-           Get a non-const version of p so we can modify new.  */
-        pv = new + (p - *string);
+        /* At this point *string, p, and newstr all point into the same string.
+           Get a non-const version of p so we can modify newstr.  */
+        pv = newstr + (p - *string);
 
         /* The number of backslashes is now -I.
            Copy P over itself to swallow half of them.  */
-        memmove (&pv[i], &pv[i/2], (slen - (pv - new)) - (i/2) + 1);
+        memmove (&pv[i], &pv[i/2], (slen - (pv - newstr)) - (i/2) + 1);
         p += i/2;
 
         /* If the backslashes quoted each other; the % was unquoted.  */
@@ -2557,10 +2557,11 @@ find_percent_cached (const char **string)
     }
 
   /* If we had to change STRING, add it to the strcache.  */
-  if (new)
+  if (newstr)
     {
       *string = strcache_add (*string);
-      p = *string + (p - new);
+      p = *string + (p - newstr);
+      free (newstr);
     }
 
   /* If we didn't find a %, return NULL.  Otherwise return a ptr to it.  */
