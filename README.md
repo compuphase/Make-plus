@@ -1,4 +1,7 @@
 # Make+
+
+**🔴 this project has moved to https://codeberg.org/compuphase/Make-plus 🔴**
+
 This is a forked version of GNU 4.2.1 Make with a few additions and changes to enhance its ease of use. Several of these changes are inspired by Opus Make version 6.12 from 1998. In adding these features to GNU Make, I have come to appreciate how advanced Opus Make was 25 years ago. After the fork, GNU Make has had releases 4.3 and 4.4; the user-visible changes of these releases have been merged to Make+.
 
 ## A recipe starts with an indent of 4 spaces or a TAB character
